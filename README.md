@@ -1,6 +1,7 @@
 # AniManga Bot
 
 A maubot plugin that allows you to search for anime and manga in AniList database.
+![bot_animanga](https://github.com/user-attachments/assets/57cb49ab-d019-4d54-9c4f-0b3e9a315373)
 
 ## Usage
 
