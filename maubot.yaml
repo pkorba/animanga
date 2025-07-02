@@ -1,0 +1,10 @@
+maubot: 0.1.0
+id: com.github.pkorba.animanga
+version: 1.0.0
+license: MIT
+modules:
+  - animanga
+main_class: AniMangaBot
+config: true
+extra-files:
+  - base-config.yaml
