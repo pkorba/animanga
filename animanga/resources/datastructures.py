@@ -38,7 +38,7 @@ class AniMangaData:
     next_episode_date: str = "",
     duration: int = 0,
     relations: list[tuple[str, SearchResult]] = [],
-    studios: list[tuple[str, int]] = [],
+    studios: set[tuple[str, int]] = {},
     studio_number: int = 0,
     links: list[tuple[str, str]] = [],
     volumes: int = 0,

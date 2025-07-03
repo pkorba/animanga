@@ -86,6 +86,13 @@ query ($id: Int) {
                 name
                 isAnimationStudio
             }
+            edges {
+                isMain
+                node {
+                    id
+                    name
+                }
+            }
         }
         externalLinks {
             url

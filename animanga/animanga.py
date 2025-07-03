@@ -5,16 +5,15 @@ from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 from mautrix.types import TextMessageEventContent, MessageType, Format
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
-from typing import Type, Any
 from .resources import queries
 from .resources.datastructures import SearchResult, AniMangaData, media_formats, statuses, relation_types, seasons, months
+from typing import Type, Any
 
 
 class Config(BaseProxyConfig):
     def do_update(self, helper: ConfigUpdateHelper) -> None:
         helper.copy("max_results")
         helper.copy("max_relations")
-        helper.copy("max_tags")
 
 
 class AniMangaBot(Plugin):
@@ -201,16 +200,24 @@ class AniMangaBot(Plugin):
             next_episode_date = None
             if data["nextAiringEpisode"] and data["nextAiringEpisode"].get("airingAt", 0):
                 next_episode_date = datetime.fromtimestamp(data["nextAiringEpisode"]["airingAt"]).strftime("%b %-d, %Y %H:%M")
+            studios = set()
+            studio_number = 0
+            if data["studios"]["edges"]:
+                # Only include main studio. AniList groups animation studios with producers here
+                studios = set([(studio["node"].get("name", ""), studio["node"].get("id", 0)) for studio in data["studios"]["edges"] if studio["isMain"]])
+                if not studios:
+                    first_producer = data["studios"]["edges"][0]
+                    studios = {(first_producer["node"].get("name", ""), first_producer["node"].get("id", 0))}
+                studio_number = len(data["studios"]["edges"]) - len(studios)
+
             result.episodes = data["episodes"]
             result.season = seasons.get(data["season"], data["season"])
             result.season_year = data["seasonYear"]
             result.next_episode_num = data["nextAiringEpisode"].get("episode", 0) if data["nextAiringEpisode"] else None
             result.next_episode_date = next_episode_date
             result.duration = data["duration"]
-            # Only include animation studios. AniList groups animation studios with producers here
-            result.studios = [(studio["name"], studio["id"]) for studio in data["studios"]["nodes"] if studio["isAnimationStudio"]]
-            # Get the number of producers
-            result.studio_number = len(data["studios"]["nodes"]) - len(result.studios) if result.studios else 0
+            result.studios = studios
+            result.studio_number = studio_number
             result.trailer = (data["trailer"].get("site", ""), data["trailer"].get("id", "")) if data["trailer"] else ()
             result.volumes = 0
             result.chapters = 0
@@ -221,7 +228,7 @@ class AniMangaBot(Plugin):
             result.next_episode_num = 0
             result.next_episode_date = ""
             result.duration = 0
-            result.studios = []
+            result.studios = set()
             result.studio_number = 0
             result.trailer = ()
             result.volumes = data["volumes"]
@@ -249,27 +256,8 @@ class AniMangaBot(Plugin):
         if data.nsfw:
             body += " 🔞"
             html += " 🔞"
+        body += f"  \n>  \n"
         html += f"</h3>"
-
-        # Description
-        if data.description:
-            body += f"  \n>  \n>{data.description.replace('\r', '').replace('\n', '').replace('<br>', '  \n>')}"
-            html += f"<p>{data.description}</p>"
-
-        body += "  \n>  \n"
-        html += "</td><td>"
-        # Image - panel 2
-        if data.image:
-            html += f"<img src=\"{data.image}\" height=\"200\" />"
-
-        # Panel 3
-        # Other titles
-        other_titles = f"{f'{data.title_ro}, ' if data.title_en else ''}{data.title_ja}"
-        body += f"> > **Other titles:** {other_titles}  \n>  \n"
-        html += (
-            "</td></tr><tr><td>"
-            f"<blockquote><b>Other titles:</b> {other_titles}</blockquote>"
-        )
 
         # Score
         score = None
@@ -286,20 +274,33 @@ class AniMangaBot(Plugin):
             body += f"> > **Score**: {vote_data}  \n>  \n"
             html += f"<blockquote><b>Score:</b> {vote_data}</blockquote>"
 
+        # Description
+        if data.description:
+            body += f"> {data.description.replace('\r', '').replace('\n', '').replace('<br><br>', '<br>').replace('<br>', '  \n>')}  \n>  \n"
+            html += f"<p>{data.description.replace('<br><br>', '<br>')}</p>"
+
+        html += "</td>"
+        # Image - panel 2
+        if data.image:
+            html += f"<td><img src=\"{data.image}\" height=\"230\" /></td>"
+        html += "</tr></table>"
+
+        # Panel 3
+        # Other titles
+        other_titles = f"{f'{data.title_ro}, ' if data.title_en else ''}{data.title_ja}"
+        body += f"> > **Other titles:** {other_titles}  \n>  \n"
+        html += (
+            "<p><details><summary><b>DETAILS</b></summary><table><tr><td>"
+            f"<blockquote><b>Other titles:</b> {other_titles}</blockquote>"
+        )
+
         # Format
         if data.format:
             media_format = data.format
             if data.episodes:
                 media_format += f" | {data.episodes} episode{'s' if data.episodes > 1 else ''}"
                 if data.duration:
-                    if data.duration >= 60:
-                        hours = data.duration // 60
-                        minutes = data.duration % 60
-                        duration = f"{hours} h"
-                        if minutes:
-                            duration += f" {minutes} min"
-                    else:
-                        duration = f"{data.duration} min"
+                    duration = await self.get_duration(data.duration)
                     media_format += f" ({duration}{' per episode' if data.episodes > 1 else ''})"
             if data.volumes:
                 media_format += f" | {data.volumes} volumes"
@@ -353,8 +354,8 @@ class AniMangaBot(Plugin):
                 html_links = html_links + ", " if html_links else html_links
                 body_links += ", ".join([f"[{link[0]}]({link[1]})" for link in data.links])
                 html_links += ", ".join([f"<a href=\"{link[1]}\">{link[0]}</a>" for link in data.links])
-            body += f"> > **Links:** {body_links}  \n>  \n"
-            html += f"<blockquote><b>Links:</b> {html_links}</blockquote>"
+            body += f"> > **External links:** {body_links}  \n>  \n"
+            html += f"<blockquote><b>External links:</b> {html_links}</blockquote>"
 
         # Genres
         if data.genres:
@@ -368,61 +369,78 @@ class AniMangaBot(Plugin):
             body_tags = ", ".join([f"[{tag}](https://anilist.co/search/{media_type}?genres={tag.replace(' ', '%20')})" for tag in data.tags])
             html_tags = ", ".join([f"<a href=\"https://anilist.co/search/{media_type}?genres={tag}\">{tag}</a>" for tag in data.tags])
             body += f"> > **Tags:** {body_tags}  \n>  \n"
-            if len(data.tags) > self.get_max_tags():
-                html += f"<blockquote><details><summary><b>Tags:</b></summary> {html_tags}</details></blockquote>"
-            else:
-                html += f"<blockquote><b>Tags:</b> {html_tags}</blockquote>"
+            html += f"<blockquote><b>Tags:</b> {html_tags}</blockquote>"
 
-        html += "</td><td><p>"
-        # Relations - panel 4
-        if data.relations:
-            body += "> **Related entries:**  \n>  \n"
-            html += "<b>Related entries:</b>"
-            for i in range(0, len(data.relations)):
-                rel = data.relations[i]
-                base_url = rel[1].media_type.lower()
-                al_title = rel[1].title_en if rel[1].title_en else rel[1].title_ro
-                al_url = f"https://anilist.co/{base_url}/{rel[1].id}"
-                body += f"> > {i + 1}. [{al_title}]({al_url})"
-                html += f"<blockquote>[{rel[0]}]<br>{i + 1}. <a href=\"{al_url}\">{al_title}</a>"
-                if rel[1].id_mal:
-                    mal_url = f"https://myanimelist.net/{base_url}/{rel[1].id_mal}"
-                    body += f" ([MAL]({mal_url}))"
-                    html += f" <sup>(<a href=\"{mal_url}\">MAL</a>)</sup>"
-                body += f" [{rel[0]}]  \n>  \n"
-                html += f"</blockquote>"
+        html += "</td></tr></table></details></p>"
 
-        html += "</p></td></tr>"
-        # Other results - panel 5
-        if len(other) > 1:
-            body += f"> **Other results:**  \n>  \n"
-            html += "<tr><td><p><details><summary><b>Other results:</b></summary>"
-            for i in range(1, len(other)):
-                al_title = other[i].title_en if other[i].title_en else other[i].title_ro
-                al_url = f"https://anilist.co/{media_type}/{other[i].id}"
-                body += f"> > {i}. [{al_title}]({al_url})"
-                html += f"<blockquote>{i}. <a href=\"{al_url}\">{al_title}</a>"
-                if other[i].id_mal:
-                    mal_url = f"https://myanimelist.net/{media_type}/{other[i].id_mal}"
-                    body += f" ([MAL]({mal_url}))"
-                    html += f" <sup>(<a href=\"{mal_url}\">MAL</a>)</sup>"
-                body += "  \n>  \n"
-                html += f"</blockquote>"
-            html += "</details></p></td></tr>"
+        is_links = False
+        if data.relations or len(other) > 1:
+            is_links = True
+        if is_links:
+            html += "<p><details><summary><b>LINKS</b></summary><table><tr>"
+            # Relations - panel 4
+            if data.relations:
+                body += "> **Related entries:**  \n>  \n"
+                html += "<td><p><b>Related entries:</b>"
+                for i in range(0, len(data.relations)):
+                    rel = data.relations[i]
+                    base_url = rel[1].media_type.lower()
+                    al_title = rel[1].title_en if rel[1].title_en else rel[1].title_ro
+                    al_url = f"https://anilist.co/{base_url}/{rel[1].id}"
+                    body += f"> > {i + 1}. [{al_title}]({al_url})"
+                    html += f"<blockquote>[{rel[0]}]<br>{i + 1}. <a href=\"{al_url}\">{al_title}</a>"
+                    if rel[1].id_mal:
+                        mal_url = f"https://myanimelist.net/{base_url}/{rel[1].id_mal}"
+                        body += f" ([MAL]({mal_url}))"
+                        html += f" <sup>(<a href=\"{mal_url}\">MAL</a>)</sup>"
+                    body += f" [{rel[0]}]  \n>  \n"
+                    html += f"</blockquote>"
+                html += "</p></td>"
+
+            # Other results - panel 5
+            if len(other) > 1:
+                body += f"> **Other results:**  \n>  \n"
+                html += "<td><p><b>Other results:</b>"
+                for i in range(1, len(other)):
+                    al_title = other[i].title_en if other[i].title_en else other[i].title_ro
+                    al_url = f"https://anilist.co/{media_type}/{other[i].id}"
+                    body += f"> > {i}. [{al_title}]({al_url})"
+                    html += f"<blockquote>{i}. <a href=\"{al_url}\">{al_title}</a>"
+                    if other[i].id_mal:
+                        mal_url = f"https://myanimelist.net/{media_type}/{other[i].id_mal}"
+                        body += f" ([MAL]({mal_url}))"
+                        html += f" <sup>(<a href=\"{mal_url}\">MAL</a>)</sup>"
+                    body += "  \n>  \n"
+                    html += f"</blockquote>"
+                html += "</p></td>"
+        if is_links:
+            html += "</tr></table></details></p>"
 
         body += "> **Results from AniList**"
-        html += (
-            "</table>"
-            "<p><b><sub>Results from AniList</sub></b></p>"
-            "</blockquote>"
-        )
+        html += "<p><b><sub>Results from AniList</sub></b></p></blockquote>"
 
         return TextMessageEventContent(
-                msgtype=MessageType.NOTICE,
-                format=Format.HTML,
-                body=body,
-                formatted_body=html
-            )
+            msgtype=MessageType.NOTICE,
+            format=Format.HTML,
+            body=body,
+            formatted_body=html
+        )
+
+    async def get_duration(self, time: int) -> str:
+        """
+        Convert minutes to human-readable format
+        :param time: minutes
+        :return: formatted time X h Y min / X h / X min
+        """
+        if time >= 60:
+            hours = time // 60
+            minutes = time % 60
+            duration = f"{hours} h"
+            if minutes:
+                duration += f" {minutes} min"
+        else:
+            duration = f"{time} min"
+        return duration
 
     def get_max_results(self) -> int:
         """
@@ -437,13 +455,6 @@ class AniMangaBot(Plugin):
         :return: maximum number of relations
         """
         return self.get_max_value("max_relations", 4)
-
-    def get_max_tags(self) -> int:
-        """
-        Get maximum number of tags before hiding them in dropdown.
-        :return: maximum number of tags
-        """
-        return self.get_max_value("max_tags", 10)
 
     def get_max_value(self, name: str, default: int) -> int:
         """
