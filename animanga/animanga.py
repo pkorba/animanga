@@ -170,15 +170,15 @@ class AniMangaBot(Plugin):
             title_ja=data["title"].get("native", ""),
             type=data["type"],
             image=data["coverImage"].get("large", ""),
-            # Date format: Apr 1, 2137
+            # Date format: 1 Apr 2137
             start_date=(
+                f"{str(data['startDate']['day']) + ' ' if data['startDate']['day'] else ''}"
                 f"{months.get(data['startDate']['month']) + ' ' if data['startDate']['month'] else ''}"
-                f"{str(data['startDate']['day']) + ', ' if data['startDate']['day'] else ''}"
                 f"{data['startDate']['year'] if data['startDate']['year'] else ''}"
             ),
             end_date=(
+                f"{str(data['endDate']['day']) + ' ' if data['endDate']['day'] else ''}"
                 f"{months.get(data['endDate']['month']) + ' ' if data['endDate']['month'] else ''}"
-                f"{str(data['endDate']['day']) + ', ' if data['endDate']['day'] else ''}"
                 f"{data['endDate']['year'] if data['endDate']['year'] else ''}"
             ),
             description=description,
@@ -199,7 +199,7 @@ class AniMangaBot(Plugin):
         if result.type == "ANIME":
             next_episode_date = None
             if data["nextAiringEpisode"] and data["nextAiringEpisode"].get("airingAt", 0):
-                next_episode_date = datetime.fromtimestamp(data["nextAiringEpisode"]["airingAt"]).strftime("%b %-d, %Y %H:%M")
+                next_episode_date = datetime.fromtimestamp(data["nextAiringEpisode"]["airingAt"]).strftime("%A, %-d %b %Y, %H:%M")
             studios = set()
             studio_number = 0
             if data["studios"]["edges"]:
