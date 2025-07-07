@@ -19,7 +19,7 @@ class Config(BaseProxyConfig):
 class AniMangaBot(Plugin):
     url = "https://graphql.anilist.co"
     headers = {
-        "User-Agent": "AniMangaBot/1.0.0"
+        "User-Agent": "AniMangaBot/1.1.0"
     }
 
     async def start(self) -> None:
