@@ -1,7 +1,10 @@
 # AniManga Bot
 
 A maubot plugin that allows you to search for anime and manga in AniList database.
-![bot_animanga](https://github.com/user-attachments/assets/57cb49ab-d019-4d54-9c4f-0b3e9a315373)
+#### Default view
+![bot_animanga1](https://github.com/user-attachments/assets/88f18dfd-79ce-4bb1-b738-2cff63f82533)
+#### Expanded view
+![bot_animanga2](https://github.com/user-attachments/assets/57a13537-2a08-4988-b28c-6fdfa0d95054)
 
 ## Usage
 
@@ -14,9 +17,8 @@ Type the title of the anime or manga you'd like to see:
 ## Configuration
 
 It's possible to change plugin's configuration in maubot's control panel. Available options:
-* `max_relations` - controls how many related entries will be displayed (defaults to 4)
+* `max_relations` - controls how many related entries will be displayed (defaults to 3)
 * `max_results` - controls how many results will be displayed (defaults to 4)
-* `max_tags` - controls how many tags will be displayed before tags are hidden in a dropdown (defaults to 10)
 
 ## Disclaimer
 
