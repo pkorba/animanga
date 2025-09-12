@@ -81,11 +81,6 @@ query ($id: Int) {
             }
         }
         studios {
-            nodes {
-                id
-                name
-                isAnimationStudio
-            }
             edges {
                 isMain
                 node {
