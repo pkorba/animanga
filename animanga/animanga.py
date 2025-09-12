@@ -489,9 +489,9 @@ class AniMangaBot(Plugin):
                 filename=f"image{extension}",
                 size=len(data))
         except aiohttp.ClientError as e:
-            self.log.error(f"Preparing image - connection failed: {url}: {e}")
+            self.log.error(f"Downloading image - connection failed: {e}")
         except Exception as e:
-            self.log.error(f"Preparing image - unknown error: {url}: {e}")
+            self.log.error(f"Uploading image to Matrix server - unknown error: {e}")
         return image_url
 
     @classmethod
