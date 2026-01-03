@@ -204,7 +204,7 @@ class AniMangaBot(Plugin):
             studio_number = 0
             if data["studios"]["edges"]:
                 # Only include main studio. AniList groups animation studios with producers here
-                studios = set([(studio["node"].get("name", ""), studio["node"].get("id", 0)) for studio in data["studios"]["edges"] if studio["isMain"]])
+                studios = {(studio["node"].get("name", ""), studio["node"].get("id", 0)) for studio in data["studios"]["edges"] if studio["isMain"]}
                 if not studios:
                     first_producer = data["studios"]["edges"][0]
                     studios = {(first_producer["node"].get("name", ""), first_producer["node"].get("id", 0))}
@@ -256,8 +256,8 @@ class AniMangaBot(Plugin):
         if data.nsfw:
             body += " 🔞"
             html += " 🔞"
-        body += f"  \n>  \n"
-        html += f"</h3>"
+        body += "  \n>  \n"
+        html += "</h3>"
 
         # Score
         score = None
@@ -382,8 +382,7 @@ class AniMangaBot(Plugin):
             if data.relations:
                 body += "> **Related entries:**  \n>  \n"
                 html += "<td><p><b>Related entries:</b>"
-                for i in range(0, len(data.relations)):
-                    rel = data.relations[i]
+                for i, rel in enumerate(data.relations):
                     base_url = rel[1].media_type.lower()
                     al_title = rel[1].title_en if rel[1].title_en else rel[1].title_ro
                     al_url = f"https://anilist.co/{base_url}/{rel[1].id}"
@@ -394,12 +393,12 @@ class AniMangaBot(Plugin):
                         body += f" ([MAL]({mal_url}))"
                         html += f" <sup>(<a href=\"{mal_url}\">MAL</a>)</sup>"
                     body += f" [{rel[0]}]  \n>  \n"
-                    html += f"</blockquote>"
+                    html += "</blockquote>"
                 html += "</p></td>"
 
             # Other results - panel 5
             if len(other) > 1:
-                body += f"> **Other results:**  \n>  \n"
+                body += "> **Other results:**  \n>  \n"
                 html += "<td><p><b>Other results:</b>"
                 for i in range(1, len(other)):
                     al_title = other[i].title_en if other[i].title_en else other[i].title_ro
@@ -411,7 +410,7 @@ class AniMangaBot(Plugin):
                         body += f" ([MAL]({mal_url}))"
                         html += f" <sup>(<a href=\"{mal_url}\">MAL</a>)</sup>"
                     body += "  \n>  \n"
-                    html += f"</blockquote>"
+                    html += "</blockquote>"
                 html += "</p></td>"
         if is_links:
             html += "</tr></table></details></p>"
