@@ -10,8 +10,8 @@ A maubot plugin that allows you to search for anime and manga in AniList databas
 
 Type the title of the anime or manga you'd like to see:
 ```
-[p]anime <title>
-[p]manga <title>
+!anime <title>
+!manga <title>
 ```
 
 ## Configuration
