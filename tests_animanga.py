@@ -11,7 +11,7 @@ from mautrix.util.logging import TraceLogger
 from unittest.mock import AsyncMock
 
 
-class TestAnimeTraceBot(unittest.IsolatedAsyncioTestCase):
+class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.session = aiohttp.ClientSession()
         api = HTTPAPI(base_url="http://matrix.example.com", client_session=self.session)
