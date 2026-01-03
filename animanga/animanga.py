@@ -282,7 +282,7 @@ class AniMangaBot(Plugin):
         html += "</td>"
         # Image - panel 2
         if data.image:
-            html += f"<td><img src=\"{data.image}\" height=\"230\" /></td>"
+            html += f"<td><img src=\"{data.image}\" height=\"230\" alt=\"Poster for {title}\" /></td>"
         html += "</tr></table>"
 
         # Panel 3
