@@ -429,19 +429,19 @@ class AniMangaBot(Plugin):
             is_links = True
         if is_links:
             # Related entries
-            links_col1 = f"<td>{await self._get_related_entries(data)}</td>"
+            links_col1 = await self._get_related_entries(data)
             body += await self._get_related_entries(data, False)
 
             # Other results
-            links_col2 = f"<td>{await self._get_other_results(data, other)}</td>"
+            links_col2 = await self._get_other_results(data, other)
             body += await self._get_other_results(data, other, False)
 
             links_table = (
                 "<div>"
                 "<details><summary><b>LINKS</b></summary>"
                 f"<table><tr>"
-                f"{links_col1 if links_col1 else ""}"
-                f"{links_col2 if links_col2 else ""}"
+                f"{f"<td>{links_col1}</td>" if links_col1 else ""}"
+                f"{f"<td>{links_col2}</td>" if links_col2 else ""}"
                 f"</tr></table>"
                 f"</details>"
                 f"</div>"
