@@ -1,14 +1,17 @@
-import aiohttp
 import asyncio
 import unittest
-from animanga.animanga import AniMangaBot
-from .animanga.resources.datastructures import AniMangaData, SearchResult
-from maubot.matrix import MaubotMatrixClient
+from unittest.mock import AsyncMock
+
+import aiohttp
+from aiohttp import ClientError
 from mautrix.api import HTTPAPI
 from mautrix.errors.base import MatrixResponseError
 from mautrix.types import TextMessageEventContent
 from mautrix.util.logging import TraceLogger
-from unittest.mock import AsyncMock
+from maubot.matrix import MaubotMatrixClient
+
+from animanga.animanga import AniMangaBot
+from .animanga.resources.datastructures import AniMangaData, SearchResult
 
 
 class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
@@ -32,8 +35,19 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await self.session.close()
 
-    async def create_resp(self, status_code=200, json=None, resp_bytes=None, content_type=None, content_length=0):
-        resp = AsyncMock(status_code=status_code, content_type=content_type, content_length=content_length)
+    async def create_resp(
+            self,
+            status_code=200,
+            json=None,
+            resp_bytes=None,
+            content_type=None,
+            content_length=0
+    ):
+        resp = AsyncMock(
+            status_code=status_code,
+            content_type=content_type,
+            content_length=content_length
+        )
         resp.json.return_value = json
         resp.read.return_value = resp_bytes
         return resp
@@ -51,7 +65,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         for minutes, expected_result in config:
             with self.subTest(minutes=minutes, expected_result=expected_result):
                 # Act
-                result = await self.bot.get_duration(minutes)
+                result = await self.bot._get_duration(minutes)
 
                 # Assert
                 self.assertEqual(result, expected_result)
@@ -71,31 +85,31 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                 self.bot.config = config_dict
 
                 # Act
-                result = self.bot.get_max_value("test", 5)
+                result = self.bot._get_max_value("test", 5)
 
                 # Assert
                 self.assertEqual(result, expected_result)
 
     async def test_al_get_results_when_request_is_successful_then_return_json(self):
         # Arrange
-        json_data = {'test': 1}
+        json_data = {"test": 1}
         self.bot.http.post = AsyncMock(return_value=await self.create_resp(200, json=json_data))
 
         # Act
-        json_response = await self.bot.al_get_results({"json": "test"})
+        json_response = await self.bot._al_get_results({"json": "test"})
 
         # Assert
         self.assertEqual(json_response, json_data)
 
     async def test_al_get_results_when__aiohttp_error_then_raise_exception(self):
         # Arrange
-        self.bot.http.post = AsyncMock(side_effect=aiohttp.ClientError)
+        self.bot.http.post = AsyncMock(side_effect=ClientError)
 
         # Assert
         with self.assertLogs(self.bot.log, level='ERROR') as logger:
-            with self.assertRaisesRegex(Exception, "Connection to AniList API failed."):
+            with self.assertRaisesRegex(ClientError, "Connection to AniList API failed."):
                 # Act
-                await self.bot.al_get_results({"json": "test"})
+                await self.bot._al_get_results({"json": "test"})
             self.assertEqual(['ERROR:testlogger:Connection to AniList API failed: '], logger.output)
 
     async def test_al_parse_results_when_correct_data_return_list_of_SearchResult(self):
@@ -155,7 +169,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         ]
 
         # Act
-        results = await self.bot.al_parse_results(data)
+        results = await self.bot._al_parse_results(data)
 
         # Assert
         self.assertIsInstance(results[0], SearchResult)
@@ -191,10 +205,13 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
 
         # Act
         with self.assertLogs(self.bot.log, level='ERROR') as logger:
-            results = await self.bot.al_parse_results(data)
+            results = await self.bot._al_parse_results(data)
 
             # Assert
-            self.assertEqual(["ERROR:testlogger:Error parsing results: Error message; Error message 2"], logger.output)
+            self.assertEqual(
+                ["ERROR:testlogger:Error parsing results: Error message; Error message 2"],
+                logger.output
+            )
             self.assertEqual(results, [])
 
     async def test_al_parse_main_result_when_correct_anime_data_return_AniMangaData(self):
@@ -228,7 +245,10 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                         "month": 12,
                         "year": 2024
                     },
-                    "description": "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>\n\nNotes: <br>\n- Some notes",
+                    "description": (
+                        "Desctiption!<br><br>\n(Source: Crunchyroll) "
+                        "<br><br>\n\nNotes: <br>\n- Some notes"
+                    ),
                     "averageScore": 84,
                     "meanScore": 85,
                     "stats": {
@@ -425,7 +445,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
             )]
 
         # Act
-        result = await self.bot.al_parse_main_result(data)
+        result = await self.bot._al_parse_main_result(data)
 
         # Assert
         self.assertIsInstance(result, AniMangaData)
@@ -435,10 +455,16 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.title_en, "English")
         self.assertEqual(result.title_ja, "Native")
         self.assertEqual(result.type, "ANIME")
-        self.assertEqual(result.image, "https://anilist.example.com/media/anime/cover/medium/12345.jpg")
+        self.assertEqual(
+            result.image,
+            "https://anilist.example.com/media/anime/cover/medium/12345.jpg"
+        )
         self.assertEqual(result.start_date, "4 Oct 2024")
         self.assertEqual(result.end_date, "20 Dec 2024")
-        self.assertEqual(result.description, "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>\n\n")
+        self.assertEqual(
+            result.description,
+            "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>\n\n"
+        )
         self.assertEqual(result.average_score, 84)
         self.assertEqual(result.mean_score, 85)
         self.assertEqual(result.votes, 113412)
@@ -446,10 +472,19 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.nsfw, True)
         self.assertEqual(result.format, "TV Show")
         self.assertEqual(result.status, "Finished")
-        self.assertEqual(result.genres, ["Action", "Comedy", "Drama", "Romance", "Sci-Fi", "Supernatural"])
+        self.assertEqual(
+            result.genres,
+            ["Action", "Comedy", "Drama", "Romance", "Sci-Fi", "Supernatural"]
+        )
         self.assertEqual(result.tags, ["Urban Fantasy", "Youkai", "Ghost"])
         self.assertEqual(result.relations, relations)
-        self.assertEqual(result.links, [("Twitter", "https://twitter.example.com/anime_title"), ("Official Site", "https://example.com/")])
+        self.assertEqual(
+            result.links,
+            [
+                ("Twitter", "https://twitter.example.com/anime_title"),
+                ("Official Site", "https://example.com/")
+            ]
+        )
         self.assertEqual(result.episodes, 12)
         self.assertEqual(result.season, "Fall")
         self.assertEqual(result.season_year, 2024)
@@ -519,7 +554,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         }
 
         # Act
-        result = await self.bot.al_parse_main_result(data)
+        result = await self.bot._al_parse_main_result(data)
 
         # Assert
         self.assertIsInstance(result, AniMangaData)
@@ -583,7 +618,10 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                         "month": 12,
                         "year": 2024
                     },
-                    "description": "Desctiption!<br><br>\n(Source: VIZ Media) <br><br>\n\nNotes: <br>\n- Some notes",
+                    "description": (
+                        "Desctiption!<br><br>\n(Source: VIZ Media) "
+                        "<br><br>\n\nNotes: <br>\n- Some notes"
+                    ),
                     "averageScore": 84,
                     "meanScore": 85,
                     "stats": {
@@ -735,7 +773,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
             )]
 
         # Act
-        result = await self.bot.al_parse_main_result(data)
+        result = await self.bot._al_parse_main_result(data)
 
         # Assert
         self.assertIsInstance(result, AniMangaData)
@@ -745,10 +783,16 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.title_en, "English")
         self.assertEqual(result.title_ja, "Native")
         self.assertEqual(result.type, "MANGA")
-        self.assertEqual(result.image, "https://anilist.example.com/media/anime/cover/medium/12345.jpg")
+        self.assertEqual(
+            result.image,
+            "https://anilist.example.com/media/anime/cover/medium/12345.jpg"
+        )
         self.assertEqual(result.start_date, "4 Oct 2024")
         self.assertEqual(result.end_date, "20 Dec 2024")
-        self.assertEqual(result.description, "Desctiption!<br><br>\n(Source: VIZ Media) <br><br>\n\n")
+        self.assertEqual(
+            result.description,
+            "Desctiption!<br><br>\n(Source: VIZ Media) <br><br>\n\n"
+        )
         self.assertEqual(result.average_score, 84)
         self.assertEqual(result.mean_score, 85)
         self.assertEqual(result.votes, 113412)
@@ -756,10 +800,19 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.nsfw, True)
         self.assertEqual(result.format, "Manga")
         self.assertEqual(result.status, "Finished")
-        self.assertEqual(result.genres, ["Action", "Comedy", "Drama", "Romance", "Sci-Fi", "Supernatural"])
+        self.assertEqual(
+            result.genres,
+            ["Action", "Comedy", "Drama", "Romance", "Sci-Fi", "Supernatural"]
+        )
         self.assertEqual(result.tags, ["Urban Fantasy", "Youkai", "Ghost"])
         self.assertEqual(result.relations, relations)
-        self.assertEqual(result.links, [("Twitter", "https://twitter.example.com/anime_title"), ("Official Site", "https://example.com/")])
+        self.assertEqual(
+            result.links,
+            [
+                ("Twitter", "https://twitter.example.com/anime_title"),
+                ("Official Site", "https://example.com/")
+            ]
+        )
         self.assertEqual(result.episodes, 0)
         self.assertEqual(result.season, "")
         self.assertEqual(result.season_year, 0)
@@ -822,7 +875,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         }
 
         # Act
-        result = await self.bot.al_parse_main_result(data)
+        result = await self.bot._al_parse_main_result(data)
 
         # Assert
         self.assertIsInstance(result, AniMangaData)
@@ -889,11 +942,405 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
 
         # Act
         with self.assertLogs(self.bot.log, level='ERROR') as logger:
-            results = await self.bot.al_parse_main_result(data)
+            results = await self.bot._al_parse_main_result(data)
 
             # Assert
-            self.assertEqual(["ERROR:testlogger:Error parsing results: Error message; Error message 2"], logger.output)
+            self.assertEqual(
+                ["ERROR:testlogger:Error parsing results: Error message; Error message 2"],
+                logger.output
+            )
             self.assertEqual(results, None)
+
+    async def test_parse_relations(self):
+        # Arrange
+        data = (
+            [
+                {
+                    "relationType": "ADAPTATION",
+                    "node": {
+                        "id": 132029,
+                        "idMal": 135496,
+                        "title": {
+                            "romaji": "Adaptation Romaji",
+                            "english": "Adaptation English"
+                        },
+                        "type": "MANGA"
+                    }
+                },
+                {
+                    "relationType": "CHARACTER",
+                    "node": {
+                        "id": 185586,
+                        "idMal": 60461,
+                        "title": {
+                            "romaji": "Character Romaji",
+                            "english": "Character English"
+                        },
+                        "type": "ANIME"
+                    }
+                },
+                {
+                    "relationType": "FAKERELATION",
+                    "node": {
+                        "id": 666,
+                        "idMal": 666,
+                        "title": {
+                            "romaji": "Fake Romaji",
+                            "english": "Fake English"
+                        },
+                        "type": "ANIME"
+                    }
+                },
+                {
+                    "relationType": "SEQUEL",
+                    "node": {
+                        "id": 185660,
+                        "idMal": 60543,
+                        "title": {
+                            "romaji": "Sequel Romaji",
+                            "english": "Sequel English"
+                        },
+                        "type": "ANIME"
+                    }
+                }
+            ],
+            []
+        )
+
+        expected = (
+            [
+                (
+                    "Adaptation",
+                    SearchResult(
+                        id=132029,
+                        id_mal=135496,
+                        title_en="Adaptation English",
+                        title_ro="Adaptation Romaji",
+                        media_type="MANGA"
+                    )
+                ),
+                (
+                    "Sequel",
+                    SearchResult(
+                        id=185660,
+                        id_mal=60543,
+                        title_en="Sequel English",
+                        title_ro="Sequel Romaji",
+                        media_type="ANIME"
+                    )
+                ),
+                (
+                    "Character",
+                    SearchResult(
+                        id=185586,
+                        id_mal=60461,
+                        title_en="Character English",
+                        title_ro="Character Romaji",
+                        media_type="ANIME"
+                    )
+                ),
+                (
+                    "Fakerelation",
+                    SearchResult(
+                        id=666,
+                        id_mal=666,
+                        title_en="Fake English",
+                        title_ro="Fake Romaji",
+                        media_type="ANIME"
+                    )
+                )
+            ],
+            []
+        )
+
+        for i, elem in enumerate(data):
+            with self.subTest(i=i):
+                # Act
+                res = await self.bot._parse_relations(elem)
+
+                # Assert
+                self.assertIsInstance(res, list)
+                self.assertEqual(res, expected[i])
+
+    async def test_parse_description(self):
+        # Arrange
+        data = [
+            (
+                {
+                    "description": (
+                        "Desctiption!<br><br>\n(Source: Crunchyroll) "
+                        "<br><br>\n\nNotes: <br>\n- Some notes"
+                    )
+                },
+                "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>\n\n"
+            ),
+            (
+                {
+                    "description": (
+                        "Desctiption!<br><br>\n(Source: Crunchyroll) "
+                        "<br><br>\n\nNote: <br>\n- A note"
+                    )
+                },
+                "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>\n\n"
+            ),
+            (
+                {
+                    "description": None
+                },
+                ""
+            )
+        ]
+
+        # Act
+        for elem in data:
+            with self.subTest():
+
+                res = await self.bot._parse_desctiption(elem[0])
+
+                # Assert
+                self.assertEqual(res, elem[1])
+
+    async def test_parse_date(self):
+        # Arrange
+        data = [
+            (
+                {
+                    "startDate": {
+                        "day": 4,
+                        "month": 10,
+                        "year": 2024
+                    }
+                },
+                "4 Oct 2024"
+            ),
+            (
+                {
+                    "endDate": {
+                        "day": 20,
+                        "month": 12,
+                        "year": 2024
+                    }
+                },
+                "20 Dec 2024"
+            ),
+            (
+                {
+                    "startDate": {
+                        "day": None,
+                        "month": 10,
+                        "year": 2024
+                    }
+                },
+                "Oct 2024"
+            ),
+            (
+                {
+                    "startDate": {
+                        "day": None,
+                        "month": None,
+                        "year": 2024
+                    }
+                },
+                "2024"
+            ),
+            (
+                {
+                    "startDate": {
+                        "day": None,
+                        "month": None,
+                        "year": None
+                    }
+                },
+                ""
+            )
+        ]
+
+        # Act
+        for elem in data:
+            with self.subTest():
+
+                res = await self.bot._parse_date(elem[0], list(elem[0].keys())[0])
+
+                # Assert
+                self.assertEqual(res, elem[1])
+
+    async def test_parse_next_airing_episode(self):
+        # Arrange
+        data = [
+            (
+                {
+                    "nextAiringEpisode": {
+                        "airingAt": 1768143600,
+                        "episode": 2
+                    }
+                },
+                "Sunday, 11 Jan 2026, 16:00"
+            ),
+            (
+                {
+                    "nextAiringEpisode": {
+                        "airingAt": None,
+                        "episode": 2
+                    }
+                },
+                None
+            ),
+            (
+                {
+                    "nextAiringEpisode": None,
+                },
+                None
+            )
+        ]
+
+        # Act
+        for elem in data:
+            with self.subTest():
+
+                res = await self.bot._parse_next_airing_episode(elem[0])
+
+                # Assert
+                self.assertEqual(res, elem[1])
+
+    async def test_parse_studios(self):
+        # Arrange
+        data = [
+            (
+                {
+                    "studios": {
+                        "edges": [
+                            {
+                                "isMain": True,
+                                "node": {
+                                    "id": 6145,
+                                    "name": "Science SARU"
+                                }
+                            },
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 143,
+                                    "name": "Mainichi Broadcasting System"
+                                }
+                            },
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 6145,
+                                    "name": "Science SARU"
+                                }
+                            },
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 6570,
+                                    "name": "Shueisha"
+                                }
+                            },
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 53,
+                                    "name": "Dentsu"
+                                }
+                            }
+                        ]
+                    },
+                },
+                ({('Science SARU', 6145)}, 4)
+            ),
+            (
+                {
+                    "studios": {
+                        "edges": [
+                            {
+                                "isMain": True,
+                                "node": {
+                                    "id": 6145,
+                                    "name": "Science SARU"
+                                }
+                            },
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 143,
+                                    "name": "Mainichi Broadcasting System"
+                                }
+                            },
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 6145,
+                                    "name": "Science SARU"
+                                }
+                            },
+                            {
+                                "isMain": True,
+                                "node": {
+                                    "id": 6570,
+                                    "name": "Shueisha"
+                                }
+                            },
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 53,
+                                    "name": "Dentsu"
+                                }
+                            }
+                        ]
+                    },
+                },
+                ({('Science SARU', 6145), ('Shueisha', 6570)}, 3)
+            ),
+            (
+                {
+                    "studios": {
+                        "edges": [
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 6145,
+                                    "name": "Science SARU"
+                                }
+                            },
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 143,
+                                    "name": "Mainichi Broadcasting System"
+                                }
+                            },
+                            {
+                                "isMain": False,
+                                "node": {
+                                    "id": 62,
+                                    "name": "Shogakukan-Shueisha Productions"
+                                }
+                            }
+                        ]
+                    },
+                },
+                ({('Science SARU', 6145)}, 2)
+            ),
+            (
+                {
+                    "studios": {
+                        "edges": []
+                    },
+                },
+                (set(), 0)
+            )
+        ]
+
+        # Act
+        for elem in data:
+            with self.subTest():
+
+                res = await self.bot._parse_studios(elem[0])
+
+                # Assert
+                self.assertEqual(res, elem[1])
 
     async def test_prepare_message_should_return_TextMessageEventContent(self):
         # Arrange
@@ -934,7 +1381,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         search_results = []
 
         # Act
-        result = await self.bot.prepare_message(animanga_data, search_results)
+        result = await self.bot._prepare_message(animanga_data, search_results)
 
         # Assert
         self.assertIsInstance(result, TextMessageEventContent)
@@ -946,17 +1393,24 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
 
         # Act
         with self.assertLogs(self.bot.log, level='ERROR') as logger:
-            result = self.bot.get_max_value("test", 5)
+            result = self.bot._get_max_value("test", 5)
 
             # Assert
-            self.assertEqual(["ERROR:testlogger:Incorrect 'test' config value. Setting default value of 5."], logger.output)
+            self.assertEqual(
+                ["ERROR:testlogger:Incorrect 'test' config value. Setting default value of 5."],
+                logger.output
+            )
             self.assertEqual(result, config[1])
 
     async def test_get_matrix_image_url_when_request_is_successful_then_return_url(self):
         # Arrange
         data = b'image_data'
-        self.bot.http.get = AsyncMock(return_value=await self.create_resp(200, resp_bytes=data, content_type="image/png"))
-        self.bot.client.upload_media = AsyncMock(return_value="mxc://thumbnail.example.com/image.png")
+        self.bot.http.get = AsyncMock(
+            return_value=await self.create_resp(200, resp_bytes=data, content_type="image/png")
+        )
+        self.bot.client.upload_media = AsyncMock(
+            return_value="mxc://thumbnail.example.com/image.png"
+        )
 
         # Act
         response = await self.bot.get_matrix_image_url("https://example.com/image.png")
@@ -973,17 +1427,22 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
             response = await self.bot.get_matrix_image_url("https://example.com/image.png")
 
             # Assert
-            self.assertEqual(['ERROR:testlogger:Downloading image - connection failed: '], logger.output)
+            self.assertEqual(
+                ['ERROR:testlogger:Downloading image - connection failed: '],
+                logger.output
+            )
             self.assertEqual(response, "")
 
     async def test_get_matrix_image_url_when_error_then_return_empty_string(self):
         # Arrange
         data = b'image_data'
-        self.bot.http.get = AsyncMock(return_value=await self.create_resp(200, resp_bytes=data, content_type="image/png"))
+        self.bot.http.get = AsyncMock(
+            return_value=await self.create_resp(200, resp_bytes=data, content_type="image/png")
+        )
         errors = (
-            (Exception, "Uploading image to Matrix server - unknown error: "),
-            (ValueError, "Uploading image to Matrix server - unknown error: "),
-            (MatrixResponseError("test"), "Uploading image to Matrix server - unknown error: test"))
+            (ClientError, "Downloading image - connection failed: "),
+            (ValueError, "Uploading image to Matrix server: "),
+            (MatrixResponseError("test"), "Uploading image to Matrix server: test"))
         for error, log_message in errors:
             with self.subTest(error=error, log_message=log_message):
                 self.bot.client.upload_media = AsyncMock(side_effect=error)
@@ -995,6 +1454,101 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                     # Assert
                     self.assertEqual([f"ERROR:testlogger:{log_message}"], logger.output)
                     self.assertEqual(result, "")
+
+    async def test_get_link(self):
+        # Arrange
+        data = (
+            (
+                "<a href=\"https://html.example.com\">Example</a>",
+                "https://html.example.com",
+                "Example",
+                True
+            ),
+            (
+                "[Example](https://md.example.com)",
+                "https://md.example.com",
+                "Example",
+                False
+            )
+        )
+
+        for elem in data:
+            with self.subTest():
+                # Act
+                res = await self.bot._get_link(elem[1], elem[2], elem[3])
+
+            # Assert
+            self.assertEqual(res, elem[0])
+
+    async def test_get_titles(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                123,
+                321,
+                "English",
+                "Romaji",
+                "MANGA",
+                True,
+                (
+                    '<h3><a href="https://anilist.co/manga/123">English</a> '
+                    '<sup>(<a href="https://myanimelist.net/manga/321">MAL</a>)</sup> 🔞</h3>'
+                ),
+                True
+            ),
+            (
+                123,
+                0,
+                "",
+                "Romaji",
+                "",
+                False,
+                (
+                    '<h3><a href="https://anilist.co/anime/123">Romaji</a></h3>'
+                ),
+                True
+            ),
+            (
+                123,
+                321,
+                "English",
+                "Romaji",
+                "MANGA",
+                True,
+                (
+                    '> ### [English](https://anilist.co/manga/123) '
+                    '([MAL](https://myanimelist.net/manga/321)) 🔞  \n>  \n'
+                ),
+                False
+            ),
+            (
+                123,
+                0,
+                "",
+                "Romaji",
+                "",
+                False,
+                (
+                    '> ### [Romaji](https://anilist.co/anime/123)  \n>  \n'
+                ),
+                False
+            )
+        )
+        for elem in input_data:
+            data.id = elem[0]
+            data.id_mal = elem[1]
+            data.title_en = elem[2]
+            data.title_ro = elem[3]
+            data.type = elem[4]
+            data.nsfw = elem[5]
+            result = elem[6]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_titles(data, elem[7])
+
+                # Assert
+                self.assertEqual(res, result)
 
 
 if __name__ == '__main__':

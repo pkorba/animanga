@@ -7,7 +7,7 @@ class SearchResult:
     id_mal: int = 0,
     title_en: str = "",
     title_ro: str = "",
-    media_type: str = "",
+    media_type: str = ""
 
 
 @dataclass
@@ -64,7 +64,7 @@ statuses = {
     "RELEASING": "Releasing",
     "NOT_YET_RELEASED": "Not Yet Released",
     "CANCELLED": "Cancelled",
-    "HIATUS": "Hiatus",
+    "HIATUS": "Hiatus"
 }
 
 seasons = {
