@@ -198,11 +198,11 @@ class AniMangaBot(Plugin):
             image=data["coverImage"].get("large", ""),
             start_date=await self._parse_date(data, "startDate"),
             end_date=await self._parse_date(data, "endDate"),
-            description=await self._parse_desctiption(data),
+            description=await self._parse_description(data),
             average_score=data["averageScore"],
             mean_score=data["meanScore"],
             # Number of votes is the sum of votes of each score. API doesn't provide the total value
-            votes=sum(score["amount"] for score in data["stats"].get("scoreDistribution", [])),
+            votes=await self._parse_votes(data),
             favorites=data["favourites"],
             nsfw=data["isAdult"],
             format=media_formats.get(data["format"], data["format"]),
@@ -274,7 +274,7 @@ class AniMangaBot(Plugin):
         ]
         return relations
 
-    async def _parse_desctiption(self, data: Any) -> str:
+    async def _parse_description(self, data: Any) -> str:
         """
         Remove the so-called "Notes" section in the description
         because it makes the summary unnecessarily long
@@ -286,6 +286,11 @@ class AniMangaBot(Plugin):
             description_separator = "Notes:" if "Notes:" in data["description"] else "Note:"
             description = data["description"].split(description_separator)[0]
         return description
+
+    async def _parse_votes(self, data: Any) -> int:
+        if data["stats"]["scoreDistribution"] is None:
+            return 0
+        return sum(score["amount"] for score in data["stats"]["scoreDistribution"])
 
     async def _parse_date(self, data: Any, date_key: str) -> str:
         """
@@ -359,27 +364,21 @@ class AniMangaBot(Plugin):
         body += await self._get_score(data, False)
 
         # Description
-        main_col1 += await self._get_desctiption(data)
-        body += await self._get_desctiption(data, False)
+        main_col1 += await self._get_description(data)
+        body += await self._get_description(data, False)
 
-        main_col1 = f"<td>{main_col1}</td>"
         # Image
+        main_table = await self._get_main_table(data, main_col1)
         if data.image:
-            title = data.title_en if data.title_en else data.title_ro
-            main_table = (
-                f"<table><tr>{main_col1}"
-                f"<td>{await self._get_image(
-                    data.image,
-                    f"Poster for {title}",
-                    (0, 230)
-                )}</td></tr></table>"
-            )
             body += (
-                f"> {await self._get_image(data.image, f"Poster for {title}", (0, 230), False)}"
+                f"> {await self._get_image(
+                    data.image, 
+                    f"Poster for {data.title_en if data.title_en else data.title_ro}", 
+                    (0, 230), 
+                    False
+                )}"
                 "  \n>  \n"
             )
-        else:
-            main_table = f"<table><tr>{main_col1}</tr></table>"
 
         # Details table
         # Other titles
@@ -416,18 +415,15 @@ class AniMangaBot(Plugin):
 
         details_table = (
             "<div>"
-            "<details><summary><b>DETAILS</b></summary>"
-            f"<table><tr><td>{details_content}</td></tr></table>"
+            "<details><summary><b>DETAILS </b></summary>"
+            f"<table><tr><td><p>{details_content}</p></td></tr></table>"
             "</details>"
             "</div>"
         )
 
         # Links table
         links_table = ""
-        is_links = False
         if data.relations or len(other) > 1:
-            is_links = True
-        if is_links:
             # Related entries
             links_col1 = await self._get_related_entries(data)
             body += await self._get_related_entries(data, False)
@@ -436,16 +432,7 @@ class AniMangaBot(Plugin):
             links_col2 = await self._get_other_results(data, other)
             body += await self._get_other_results(data, other, False)
 
-            links_table = (
-                "<div>"
-                "<details><summary><b>LINKS</b></summary>"
-                f"<table><tr>"
-                f"{f"<td>{links_col1}</td>" if links_col1 else ""}"
-                f"{f"<td>{links_col2}</td>" if links_col2 else ""}"
-                f"</tr></table>"
-                f"</details>"
-                f"</div>"
-            )
+            links_table = await self._get_links_table(links_col1, links_col2)
 
         body += "> **Results from AniList**"
         html = (
@@ -540,7 +527,7 @@ class AniMangaBot(Plugin):
                 result = f"> > **Score**: {vote_data}  \n>  \n"
         return result
 
-    async def _get_desctiption(self, data: AniMangaData, is_html: bool = True) -> str:
+    async def _get_description(self, data: AniMangaData, is_html: bool = True) -> str:
         """
         Get the description with trimmed whitespace between paragraphs
         :param data: AniMangaData
@@ -557,7 +544,7 @@ class AniMangaBot(Plugin):
                     f"> {description
                          .replace('\r', '')
                          .replace('\n', '')
-                         .replace('<br>', '  \n>')}  \n>  \n"
+                         .replace('<br>', '  \n> ')}  \n>  \n"
                 )
         return result
 
@@ -582,6 +569,19 @@ class AniMangaBot(Plugin):
             return f"<img src=\"{src}\" alt=\"{alt}\" {width}{height}/>"
         return f"![{alt}]({src})"
 
+    async def _get_main_table(self, data: AniMangaData, col1: str) -> str:
+        # Image
+        if data.image:
+            return (
+                f"<div><table><tr><td>{col1}</td>"
+                f"<td>{await self._get_image(
+                    data.image,
+                    f"Poster for {data.title_en if data.title_en else data.title_ro}",
+                    (0, 230)
+                )}</td></tr></table></div>"
+            )
+        return f"<table><tr><td>{col1}</td></tr></table>"
+
     async def _get_other_titles(self, data: AniMangaData, is_html: bool = True) -> str:
         """
         Get alternative titles
@@ -589,7 +589,12 @@ class AniMangaBot(Plugin):
         :param is_html: True for HTML, False for Markdown
         :return: Other titles section
         """
-        other_titles = f"{f'{data.title_ro}, ' if data.title_en else ''}{data.title_ja}"
+        other_titles = (
+            f"{f'{data.title_ro}, ' if data.title_en else ''}"
+            f"{data.title_ja if data.title_ja else ''}"
+        )
+        if not other_titles:
+            return ""
         if is_html:
             return f"<blockquote><b>Other titles:</b> {other_titles}</blockquote>"
         return f"> > **Other titles:** {other_titles}  \n>  \n"
@@ -844,6 +849,20 @@ class AniMangaBot(Plugin):
                         result += f" ({mal_link})"
                     result += "  \n>  \n"
         return result
+
+    async def _get_links_table(self, col1: str, col2: str) -> str:
+        col1 = f"<td><p>{col1}</p></td>" if col1 else ""
+        col2 = f"<td><p>{col2}</p></td>" if col2 else ""
+        return (
+            "<div>"
+            "<details><summary><b>LINKS </b></summary>"
+            f"<table><tr>"
+            f"{col1}"
+            f"{col2}"
+            f"</tr></table>"
+            f"</details>"
+            f"</div>"
+        )
 
     async def _get_duration(self, time: int) -> str:
         """

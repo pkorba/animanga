@@ -1095,7 +1095,68 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         for elem in data:
             with self.subTest():
 
-                res = await self.bot._parse_desctiption(elem[0])
+                res = await self.bot._parse_description(elem[0])
+
+                # Assert
+                self.assertEqual(res, elem[1])
+
+    async def test_parse_votes(self):
+        # Arrange
+        data = [
+            (
+                {
+                    "stats": {
+                        "scoreDistribution": None
+                    }
+                },
+                0
+            ),
+            (
+                {
+                    "stats": {
+                        "scoreDistribution": [
+                            {
+                                "amount": 9
+                            },
+                            {
+                                "amount": 2
+                            },
+                            {
+                                "amount": 2
+                            },
+                            {
+                                "amount": 9
+                            },
+                            {
+                                "amount": 27
+                            },
+                            {
+                                "amount": 41
+                            },
+                            {
+                                "amount": 186
+                            },
+                            {
+                                "amount": 385
+                            },
+                            {
+                                "amount": 408
+                            },
+                            {
+                                "amount": 224
+                            }
+                        ]
+                    }
+                },
+                1293
+            ),
+        ]
+
+        # Act
+        for elem in data:
+            with self.subTest():
+
+                res = await self.bot._parse_votes(elem[0])
 
                 # Assert
                 self.assertEqual(res, elem[1])
@@ -1504,9 +1565,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                 "Romaji",
                 "",
                 False,
-                (
-                    '<h3><a href="https://anilist.co/anime/123">Romaji</a></h3>'
-                ),
+                '<h3><a href="https://anilist.co/anime/123">Romaji</a></h3>',
                 True
             ),
             (
@@ -1529,9 +1588,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                 "Romaji",
                 "",
                 False,
-                (
-                    '> ### [Romaji](https://anilist.co/anime/123)  \n>  \n'
-                ),
+                '> ### [Romaji](https://anilist.co/anime/123)  \n>  \n',
                 False
             )
         )
@@ -1546,6 +1603,492 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
             with self.subTest():
                 # Act
                 res = await self.bot._get_titles(data, elem[7])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_score(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                84,
+                85,
+                2137,
+                69,
+                (
+                    '<blockquote><b>Score:</b> ⭐ 8.4/10 | 👤 2137 votes'
+                    ' | ❤️ 69 favorites</blockquote>'
+                ),
+                True
+            ),
+            (
+                None,
+                85,
+                None,
+                None,
+                '<blockquote><b>Score:</b> ⭐ 8.5/10</blockquote>',
+                True
+            ),
+            (
+                None,
+                85,
+                None,
+                69,
+                '<blockquote><b>Score:</b> ⭐ 8.5/10 | ❤️ 69 favorites</blockquote>',
+                True
+            ),
+            (
+                None,
+                None,
+                10,
+                5,
+                '',
+                True
+            ),
+            (
+                84,
+                85,
+                2137,
+                69,
+                '> > **Score**: ⭐ 8.4/10 | 👤 2137 votes | ❤️ 69 favorites  \n>  \n',
+                False
+            ),
+        )
+        for elem in input_data:
+            data.average_score = elem[0]
+            data.mean_score = elem[1]
+            data.votes = elem[2]
+            data.favorites = elem[3]
+            result = elem[4]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_score(data, elem[5])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_description(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                "description<br><br>test",
+                "<p>description<br>test</p>",
+                True
+            ),
+            (
+                None,
+                (
+                    ''
+                ),
+                True
+            ),
+            (
+                "description<br><br>\r\ntest",
+                "> description  \n> test  \n>  \n",
+                False
+            ),
+        )
+        for elem in input_data:
+            data.description = elem[0]
+            result = elem[1]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_description(data, elem[2])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_image(self):
+        # Arrange
+        input_data = (
+            (
+                "https://example.com",
+                "Example alt",
+                (5, 10),
+                '<img src="https://example.com" alt="Example alt" width="5" height="10" />',
+                True
+            ),
+            (
+                "https://example.com",
+                "Example alt",
+                (0, 5),
+                '<img src="https://example.com" alt="Example alt" height="5" />',
+                True
+            ),
+            (
+                "https://example.com",
+                "Example alt",
+                (5, 0),
+                '<img src="https://example.com" alt="Example alt" width="5" />',
+                True
+            ),
+            (
+                "https://example.com",
+                "Example alt",
+                (0, 0),
+                '<img src="https://example.com" alt="Example alt" />',
+                True
+            ),
+            (
+                "https://example.com",
+                "Example alt",
+                (5, 10),
+                '![Example alt](https://example.com)',
+                False
+            ),
+        )
+        for elem in input_data:
+            result = elem[3]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_image(elem[0], elem[1], elem[2], elem[4])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_main_table(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                "https://example.com",
+                "Romaji",
+                "English",
+                "column",
+                (
+                    '<div><table><tr><td>column</td><td>'
+                    '<img src="https://example.com" alt="Poster for English" height="230" />'
+                    '</td></tr></table></div>'
+                )
+            ),
+            (
+                None,
+                "Romaji",
+                None,
+                "column",
+                "<table><tr><td>column</td></tr></table>"
+            ),
+            (
+                "https://example.com",
+                "Romaji",
+                None,
+                "column",
+                (
+                    '<div><table><tr><td>column</td><td>'
+                    '<img src="https://example.com" alt="Poster for Romaji" height="230" />'
+                    '</td></tr></table></div>'
+                )
+            ),
+        )
+        for elem in input_data:
+            data.image = elem[0]
+            data.title_ro = elem[1]
+            data.title_en = elem[2]
+            col = elem[3]
+            result = elem[4]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_main_table(data, col)
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_other_titles(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                "English",
+                "Romaji",
+                "Japanese",
+                "<blockquote><b>Other titles:</b> Romaji, Japanese</blockquote>",
+                True
+            ),
+            (
+                None,
+                "Romaji",
+                "Japanese",
+                "<blockquote><b>Other titles:</b> Japanese</blockquote>",
+                True
+            ),
+            (
+                None,
+                "Romaji",
+                None,
+                "",
+                True
+            ),
+            (
+                "English",
+                "Romaji",
+                "Japanese",
+                "> > **Other titles:** Romaji, Japanese  \n>  \n",
+                False
+            ),
+        )
+        for elem in input_data:
+            data.title_en = elem[0]
+            data.title_ro = elem[1]
+            data.title_ja = elem[2]
+            result = elem[3]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_other_titles(data, elem[4])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_format(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                "TV",
+                12,
+                24,
+                0,
+                0,
+                "<blockquote><b>Format:</b> TV | 12 episodes (24 min per episode)</blockquote>",
+                True
+            ),
+            (
+                "Movie",
+                1,
+                118,
+                0,
+                0,
+                "> > **Format**: Movie | 1 episode (1 h 58 min)  \n>  \n",
+                False
+            ),
+            (
+                "",
+                12,
+                24,
+                0,
+                0,
+                "",
+                True
+            ),
+            (
+                "TV",
+                0,
+                24,
+                0,
+                0,
+                "<blockquote><b>Format:</b> TV</blockquote>",
+                True
+            ),
+            (
+                "TV",
+                12,
+                0,
+                0,
+                0,
+                "<blockquote><b>Format:</b> TV | 12 episodes</blockquote>",
+                True
+            ),
+            (
+                "TV",
+                0,
+                0,
+                0,
+                0,
+                "<blockquote><b>Format:</b> TV</blockquote>",
+                True
+            ),
+            (
+                "Manga",
+                0,
+                0,
+                4,
+                50,
+                "<blockquote><b>Format:</b> Manga | 4 volumes | 50 chapters</blockquote>",
+                True
+            ),
+            (
+                "Manga",
+                0,
+                0,
+                0,
+                50,
+                "<blockquote><b>Format:</b> Manga | 50 chapters</blockquote>",
+                True
+            ),
+            (
+                "Manga",
+                0,
+                0,
+                4,
+                0,
+                "<blockquote><b>Format:</b> Manga | 4 volumes</blockquote>",
+                True
+            )
+        )
+        for elem in input_data:
+            data.format = elem[0]
+            data.episodes = elem[1]
+            data.duration = elem[2]
+            data.volumes = elem[3]
+            data.chapters = elem[4]
+            result = elem[5]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_format(data, elem[6])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_status_next_episode(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                5,
+                "Sunday, 11 Jan 2026, 16:00",
+                "Releasing",
+                (
+                    "<blockquote><b>Status:</b> Releasing | "
+                    "Episode 5 on Sunday, 11 Jan 2026, 16:00</blockquote>"
+                ),
+                True
+            ),
+            (
+                5,
+                "Sunday, 11 Jan 2026, 16:00",
+                "Releasing",
+                "> > **Status:** Releasing | Episode 5 on Sunday, 11 Jan 2026, 16:00  \n>  \n",
+                False
+            ),
+            (
+                0,
+                "",
+                "Finished",
+                "<blockquote><b>Status:</b> Finished</blockquote>",
+                True
+            ),
+            (
+                5,
+                "",
+                "Finished",
+                "<blockquote><b>Status:</b> Finished</blockquote>",
+                True
+            ),
+            (
+                0,
+                "Sunday, 11 Jan 2026, 16:00",
+                "Finished",
+                "<blockquote><b>Status:</b> Finished</blockquote>",
+                True
+            ),
+            (
+                5,
+                "Sunday, 11 Jan 2026, 16:00",
+                "",
+                "",
+                False
+            ),
+        )
+        for elem in input_data:
+            data.next_episode_num = elem[0]
+            data.next_episode_date = elem[1]
+            data.status = elem[2]
+            result = elem[3]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_status_next_episode(data, elem[4])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_dates_season(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                "29 Sep 2023",
+                "22 Mar 2024",
+                "TV Series",
+                "Fall",
+                2023,
+                "<blockquote><b>Released:</b> 29 Sep 2023 to 22 Mar 2024 | Fall 2023</blockquote>",
+                True
+            ),
+            (
+                "",
+                "22 Mar 2024",
+                "TV Series",
+                "Fall",
+                2023,
+                "<blockquote><b>Released:</b> Fall 2023</blockquote>",
+                True
+            ),
+            (
+                "29 Sep 2023",
+                "29 Sep 2023",
+                "TV Series",
+                "Fall",
+                2023,
+                "<blockquote><b>Released:</b> 29 Sep 2023 | Fall 2023</blockquote>",
+                True
+            ),
+            (
+                "29 Sep 2023",
+                "",
+                "Movie",
+                "Fall",
+                2023,
+                "<blockquote><b>Released:</b> 29 Sep 2023 | Fall 2023</blockquote>",
+                True
+            ),
+            (
+                "29 Sep 2023",
+                "22 Mar 2024",
+                "TV Series",
+                "",
+                2023,
+                "<blockquote><b>Released:</b> 29 Sep 2023 to 22 Mar 2024</blockquote>",
+                True
+            ),
+            (
+                "29 Sep 2023",
+                "22 Mar 2024",
+                "TV Series",
+                "Fall",
+                0,
+                "<blockquote><b>Released:</b> 29 Sep 2023 to 22 Mar 2024</blockquote>",
+                True
+            ),
+            (
+                "29 Sep 2023",
+                "22 Mar 2024",
+                "TV Series",
+                "Fall",
+                2023,
+                "> > **Released:** 29 Sep 2023 to 22 Mar 2024 | Fall 2023  \n>  \n",
+                False
+            ),
+            (
+                "29 Sep 2023",
+                "",
+                "TV Series",
+                "Fall",
+                2023,
+                "<blockquote><b>Released:</b> 29 Sep 2023 to ? | Fall 2023</blockquote>",
+                True
+            )
+        )
+        for elem in input_data:
+            data.start_date = elem[0]
+            data.end_date = elem[1]
+            data.format = elem[2]
+            data.season = elem[3]
+            data.season_year = elem[4]
+            result = elem[5]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_dates_season(data, elem[6])
 
                 # Assert
                 self.assertEqual(res, result)
