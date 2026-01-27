@@ -2093,6 +2093,513 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                 # Assert
                 self.assertEqual(res, result)
 
+    async def test_get_studios(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                {("Studio Name", 123), ("Studio Name 1", 321)},
+                5,
+                [
+                    '<blockquote><b>Studios:</b> '
+                    '<a href="https://anilist.co/studio/321">Studio Name 1</a>, '
+                    '<a href="https://anilist.co/studio/123">Studio Name</a> '
+                    '+ 5 others</blockquote>',
+                    '<blockquote><b>Studios:</b> '
+                    '<a href="https://anilist.co/studio/123">Studio Name</a>, '
+                    '<a href="https://anilist.co/studio/321">Studio Name 1</a> '
+                    '+ 5 others</blockquote>',
+                ],
+                True
+            ),
+            (
+                set(),
+                0,
+                [""],
+                True
+            ),
+            (
+                {("Studio Name", 123)},
+                5,
+                [
+                    '> > **Studios:** [Studio Name](https://anilist.co/studio/123) '
+                    '+ 5 others  \n>  \n'
+                ],
+                False
+            ),
+            (
+                {("Studio Name", 123)},
+                1,
+                [
+                    '<blockquote><b>Studios:</b> '
+                    '<a href="https://anilist.co/studio/123">Studio Name</a> '
+                    '+ 1 other</blockquote>'
+                ],
+                True
+            ),
+            (
+                {("Studio Name", 123)},
+                0,
+                [
+                    '<blockquote><b>Studios:</b> '
+                    '<a href="https://anilist.co/studio/123">Studio Name</a>'
+                    '</blockquote>'
+                ],
+                True
+            ),
+        )
+        for elem in input_data:
+            data.studios = elem[0]
+            data.studio_number = elem[1]
+            result = elem[2]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_studios(data, elem[3])
+
+                # Assert
+                self.assertIn(res, result)
+
+    async def test_get_links(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                [
+                    ("Twitter", "https://twitter.example.com/anime_title"),
+                    ("Official Site", "https://example.com/")
+                ],
+                ("youtube", "g59AsmwgRUY"),
+                (
+                    '<blockquote><b>External links:</b> '
+                    '<a href="https://www.youtube.com/watch?v=g59AsmwgRUY">🎬 <b>TRAILER</b></a>, '
+                    '<a href="https://twitter.example.com/anime_title">Twitter</a>, '
+                    '<a href="https://example.com/">Official Site</a></blockquote>'
+                ),
+                True
+            ),
+            (
+                [
+                    ("Twitter", "https://twitter.example.com/anime_title"),
+                    ("Official Site", "https://example.com/")
+                ],
+                ("notyoutube", "g59AsmwgRUY"),
+                (
+                    '<blockquote><b>External links:</b> '
+                    '<a href="https://twitter.example.com/anime_title">Twitter</a>, '
+                    '<a href="https://example.com/">Official Site</a></blockquote>'
+                ),
+                True
+            ),
+            (
+                [
+                    ("Twitter", "https://twitter.example.com/anime_title")
+                ],
+                ("youtube", ""),
+                (
+                    '<blockquote><b>External links:</b> '
+                    '<a href="https://twitter.example.com/anime_title">Twitter</a></blockquote>'
+                ),
+                True
+            ),
+            (
+                [],
+                ("youtube", "g59AsmwgRUY"),
+                (
+                    '<blockquote><b>External links:</b> '
+                    '<a href="https://www.youtube.com/watch?v=g59AsmwgRUY">🎬 <b>TRAILER</b></a>'
+                    '</blockquote>'
+                ),
+                True
+            ),
+            (
+                [
+                    ("Twitter", "https://twitter.example.com/anime_title"),
+                    ("Official Site", "https://example.com/")
+                ],
+                ("youtube", "g59AsmwgRUY"),
+                (
+                    '> > **External links:** '
+                    '[🎬 **TRAILER**](https://www.youtube.com/watch?v=g59AsmwgRUY), '
+                    '[Twitter](https://twitter.example.com/anime_title), '
+                    '[Official Site](https://example.com/)  \n>  \n'
+                ),
+                False
+            ),
+        )
+        for elem in input_data:
+            data.links = elem[0]
+            data.trailer = elem[1]
+            result = elem[2]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_links(data, elem[3])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_genres(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                ["Drama", "Slice of Life"],
+                "anime",
+                (
+                    '<blockquote><b>Genres:</b> '
+                    '<a href="https://anilist.co/search/anime/Drama">Drama</a>, '
+                    '<a href="https://anilist.co/search/anime/Slice%20of%20Life">Slice of Life</a>'
+                    '</blockquote>'
+                ),
+                True
+            ),
+            (
+                ["Drama"],
+                "manga",
+                (
+                    '<blockquote><b>Genres:</b> '
+                    '<a href="https://anilist.co/search/manga/Drama">Drama</a>'
+                    '</blockquote>'
+                ),
+                True
+            ),
+            (
+                [],
+                "manga",
+                "",
+                True
+            ),
+            (
+                ["Drama"],
+                "",
+                '> > **Genres:** [Drama](https://anilist.co/search/anime/Drama)  \n>  \n',
+                False
+            ),
+        )
+        for elem in input_data:
+            data.genres = elem[0]
+            data.type = elem[1]
+            result = elem[2]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_genres(data, elem[3])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_tags(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                ["Drama", "Slice of Life"],
+                "anime",
+                (
+                    '<blockquote><b>Tags:</b> '
+                    '<a href="https://anilist.co/search/anime?genres=Drama">Drama</a>, '
+                    '<a href="https://anilist.co/search/anime?genres=Slice%20of%20Life">'
+                    'Slice of Life</a>'
+                    '</blockquote>'
+                ),
+                True
+            ),
+            (
+                ["Drama"],
+                "manga",
+                (
+                    '<blockquote><b>Tags:</b> '
+                    '<a href="https://anilist.co/search/manga?genres=Drama">Drama</a>'
+                    '</blockquote>'
+                ),
+                True
+            ),
+            (
+                [],
+                "manga",
+                "",
+                True
+            ),
+            (
+                ["Drama"],
+                "",
+                '> > **Tags:** [Drama](https://anilist.co/search/anime?genres=Drama)  \n>  \n',
+                False
+            ),
+        )
+        for elem in input_data:
+            data.tags = elem[0]
+            data.type = elem[1]
+            result = elem[2]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_tags(data, elem[3])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_related_entries(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                [
+                    (
+                        'Adaptation',
+                        SearchResult(
+                        id=132029,
+                        id_mal=135496,
+                        title_en='Adaptation English',
+                        title_ro='Adaptation Romaji',
+                        media_type='MANGA')
+                    ),
+                    (
+                        'Sequel',
+                        SearchResult(
+                            id=185660,
+                            id_mal=60543,
+                            title_en='',
+                            title_ro='Sequel Romaji',
+                            media_type='ANIME')
+                    ),
+                    (
+                        'Character',
+                        SearchResult(
+                            id=185586,
+                            id_mal=0,
+                            title_en='Character English',
+                            title_ro='Character Romaji',
+                            media_type='ANIME')
+                    )
+                ],
+                '<b>Related entries:</b>'
+                '<blockquote>[Adaptation]<br>'
+                '1. <a href="https://anilist.co/manga/132029">Adaptation English</a> '
+                '<sup>(<a href="https://myanimelist.net/manga/135496">MAL</a>)</sup>'
+                '</blockquote>'
+                '<blockquote>[Sequel]<br>'
+                '2. <a href="https://anilist.co/anime/185660">Sequel Romaji</a> '
+                '<sup>(<a href="https://myanimelist.net/anime/60543">MAL</a>)</sup>'
+                '</blockquote>'
+                '<blockquote>[Character]<br>'
+                '3. <a href="https://anilist.co/anime/185586">Character English</a>'
+                '</blockquote>',
+                True
+            ),
+            (
+                [
+                    (
+                        'Adaptation',
+                        SearchResult(
+                            id=132029,
+                            id_mal=135496,
+                            title_en='Adaptation English',
+                            title_ro='Adaptation Romaji',
+                            media_type='MANGA')
+                    ),
+                    (
+                        'Sequel',
+                        SearchResult(
+                            id=185660,
+                            id_mal=60543,
+                            title_en='',
+                            title_ro='Sequel Romaji',
+                            media_type='ANIME')
+                    ),
+                    (
+                        'Character',
+                        SearchResult(
+                            id=185586,
+                            id_mal=0,
+                            title_en='Character English',
+                            title_ro='Character Romaji',
+                            media_type='ANIME')
+                    )
+                ],
+                '> **Related entries:**  \n>  \n'
+                '> > 1. [Adaptation English](https://anilist.co/manga/132029) '
+                '([MAL](https://myanimelist.net/manga/135496)) [Adaptation]  \n>  \n'
+                '> > 2. [Sequel Romaji](https://anilist.co/anime/185660) '
+                '([MAL](https://myanimelist.net/anime/60543)) [Sequel]  \n>  \n'
+                '> > 3. [Character English](https://anilist.co/anime/185586) '
+                '[Character]  \n>  \n',
+                False
+            ),
+            (
+                [],
+                '',
+                True
+            ),
+        )
+        for elem in input_data:
+            data.relations = elem[0]
+            result = elem[1]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_related_entries(data, elem[2])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_other_results(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                "anime",
+                [
+                    SearchResult(
+                    id=132029,
+                    id_mal=135496,
+                    title_en='Adaptation English',
+                    title_ro='Adaptation Romaji',
+                    media_type='ANIME'
+                    ),
+                    SearchResult(
+                        id=185660,
+                        id_mal=60543,
+                        title_en='',
+                        title_ro='Sequel Romaji',
+                        media_type='ANIME'
+                    ),
+                    SearchResult(
+                        id=185586,
+                        id_mal=0,
+                        title_en='Character English',
+                        title_ro='Character Romaji',
+                        media_type='ANIME'
+                    )
+                ],
+                '<b>Other results:</b>'
+                '<blockquote>'
+                '1. <a href="https://anilist.co/anime/185660">Sequel Romaji</a> '
+                '<sup>(<a href="https://myanimelist.net/anime/60543">MAL</a>)</sup>'
+                '</blockquote>'
+                '<blockquote>'
+                '2. <a href="https://anilist.co/anime/185586">Character English</a>'
+                '</blockquote>',
+                True
+            ),
+            (
+                "manga",
+                [
+                    SearchResult(
+                        id=132029,
+                        id_mal=135496,
+                        title_en='Adaptation English',
+                        title_ro='Adaptation Romaji',
+                        media_type='MANGA'
+                    ),
+                    SearchResult(
+                        id=185660,
+                        id_mal=60543,
+                        title_en='',
+                        title_ro='Sequel Romaji',
+                        media_type='MANGA'
+                    ),
+                    SearchResult(
+                        id=185586,
+                        id_mal=0,
+                        title_en='Character English',
+                        title_ro='Character Romaji',
+                        media_type='MANGA'
+                    )
+                ],
+                '> **Other results:**  \n>  \n'
+                '> > 1. [Sequel Romaji](https://anilist.co/manga/185660) '
+                '([MAL](https://myanimelist.net/manga/60543))  \n>  \n'
+                '> > 2. [Character English](https://anilist.co/manga/185586)  \n>  \n',
+                False
+            ),
+            (
+                "anime",
+                [
+                    SearchResult(
+                        id=132029,
+                        id_mal=135496,
+                        title_en='Adaptation English',
+                        title_ro='Adaptation Romaji',
+                        media_type='ANIME'
+                    )
+                ],
+                '',
+                True
+            ),
+            (
+                "",
+                [],
+                '',
+                True
+            ),
+        )
+        for elem in input_data:
+            data.type = elem[0]
+            other = elem[1]
+            result = elem[2]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_other_results(data, other, elem[3])
+
+                # Assert
+                self.assertEqual(res, result)
+
+    async def test_get_links_table(self):
+        # Arrange
+        input_data = (
+            (
+                "col1",
+                "col2",
+                "<div>"
+                "<details><summary><b>LINKS </b></summary>"
+                "<table><tr>"
+                "<td><p>col1</p></td>"
+                "<td><p>col2</p></td>"
+                "</tr></table>"
+                "</details>"
+                "</div>"
+            ),
+            (
+                "",
+                "col2",
+                "<div>"
+                "<details><summary><b>LINKS </b></summary>"
+                "<table><tr>"
+                "<td><p>col2</p></td>"
+                "</tr></table>"
+                "</details>"
+                "</div>"
+            ),
+            (
+                "col1",
+                "",
+                "<div>"
+                "<details><summary><b>LINKS </b></summary>"
+                "<table><tr>"
+                "<td><p>col1</p></td>"
+                "</tr></table>"
+                "</details>"
+                "</div>"
+            ),
+            (
+                "",
+                "",
+                "<div>"
+                "<details><summary><b>LINKS </b></summary>"
+                "<table><tr>"
+                "</tr></table>"
+                "</details>"
+                "</div>"
+            )
+        )
+        for elem in input_data:
+            col1 = elem[0]
+            col2 = elem[1]
+            result = elem[2]
+            with self.subTest():
+                # Act
+                res = await self.bot._get_links_table(col1, col2)
+
+                # Assert
+                self.assertEqual(res, result)
+
 
 if __name__ == '__main__':
     unittest.main()

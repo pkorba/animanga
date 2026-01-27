@@ -288,6 +288,11 @@ class AniMangaBot(Plugin):
         return description
 
     async def _parse_votes(self, data: Any) -> int:
+        """
+        Get the number of votes
+        :param data: JSON data from API
+        :return: number of votes
+        """
         if data["stats"]["scoreDistribution"] is None:
             return 0
         return sum(score["amount"] for score in data["stats"]["scoreDistribution"])
@@ -703,10 +708,10 @@ class AniMangaBot(Plugin):
         :return: External links section
         """
         result = ""
-        if data.links or data.trailer and data.trailer[0] == "youtube" and data.trailer[1]:
+        if data.links or data.trailer:
             links = ""
             text = "🎬 <b>TRAILER</b>" if is_html else "🎬 **TRAILER**"
-            if data.trailer:
+            if data.trailer and data.trailer[0] == "youtube" and data.trailer[1]:
                 yt_link = f"https://www.youtube.com/watch?v={data.trailer[1]}"
                 links += await self._get_link(yt_link, text, is_html)
             if data.links:
@@ -823,17 +828,17 @@ class AniMangaBot(Plugin):
         if len(other) > 1:
             result += header
             # Omit the first because that's the main result
-            for i in range(1, len(other)):
-                al_title = other[i].title_en if other[i].title_en else other[i].title_ro
+            for i, elem in enumerate(other[1:], start=1):
+                al_title = elem.title_en if elem.title_en else elem.title_ro
                 al_link = await self._get_link(
-                    f"https://anilist.co/{media_type}/{other[i].id}",
+                    f"https://anilist.co/{media_type}/{elem.id}",
                     al_title,
                     is_html
                 )
                 mal_link = ""
-                if other[i].id_mal:
+                if elem.id_mal:
                     mal_link = await self._get_link(
-                        f"https://myanimelist.net/{media_type}/{other[i].id_mal}",
+                        f"https://myanimelist.net/{media_type}/{elem.id_mal}",
                         "MAL",
                         is_html
                     )
@@ -856,12 +861,12 @@ class AniMangaBot(Plugin):
         return (
             "<div>"
             "<details><summary><b>LINKS </b></summary>"
-            f"<table><tr>"
+            "<table><tr>"
             f"{col1}"
             f"{col2}"
-            f"</tr></table>"
-            f"</details>"
-            f"</div>"
+            "</tr></table>"
+            "</details>"
+            "</div>"
         )
 
     async def _get_duration(self, time: int) -> str:
