@@ -30,7 +30,7 @@ class Config(BaseProxyConfig):
 class AniMangaBot(Plugin):
     url = "https://graphql.anilist.co"
     headers = {
-        "User-Agent": "AniMangaBot/1.1.0"
+        "User-Agent": "AniMangaBot/1.1.1"
     }
 
     async def start(self) -> None:
@@ -377,9 +377,9 @@ class AniMangaBot(Plugin):
         if data.image:
             body += (
                 f"> {await self._get_image(
-                    data.image, 
-                    f"Poster for {data.title_en if data.title_en else data.title_ro}", 
-                    (0, 230), 
+                    data.image,
+                    f"Poster for {data.title_en if data.title_en else data.title_ro}",
+                    (0, 230),
                     False
                 )}"
                 "  \n>  \n"
