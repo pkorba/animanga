@@ -1,14 +1,14 @@
 # AniManga Bot
 
 A maubot plugin that allows you to search for anime and manga in AniList database.
-#### Default view
-![bot_animanga1](https://github.com/user-attachments/assets/88f18dfd-79ce-4bb1-b738-2cff63f82533)
-#### Expanded view
-![bot_animanga2](https://github.com/user-attachments/assets/57a13537-2a08-4988-b28c-6fdfa0d95054)
+
+## Screenshots
+<img width="45%" height="45%" alt="Frieren_small" src="https://github.com/user-attachments/assets/846bfa14-d42a-44ff-92ad-ff1057389be7" /> 
+<img width="45%" height="45%" alt="Frieren_full" src="https://github.com/user-attachments/assets/6c370c34-c586-48f1-977b-6e6112aa4229" />
 
 ## Usage
 
-Type the title of the anime or manga you'd like to see:
+Type the title of the anime or manga:
 ```
 !anime <title>
 !manga <title>
