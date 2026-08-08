@@ -3,8 +3,9 @@
 A maubot plugin that allows you to search for anime and manga in AniList database.
 
 ## Screenshots
-<img width="45%" height="45%" alt="Frieren_small" src="https://github.com/user-attachments/assets/846bfa14-d42a-44ff-92ad-ff1057389be7" /> 
-<img width="45%" height="45%" alt="Frieren_full" src="https://github.com/user-attachments/assets/6c370c34-c586-48f1-977b-6e6112aa4229" />
+<img width="45%" height="45%" alt="animangabig" src="https://github.com/user-attachments/assets/3d1e915c-60bd-48ed-a3df-d0b9b85a6ce9" />
+<img width="45%" height="45%" alt="animanga1" src="https://github.com/user-attachments/assets/5c2e911c-2bdc-45b1-b61f-7e554d1ab398" />
+
 
 ## Usage
 
