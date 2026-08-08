@@ -30,7 +30,7 @@ class Config(BaseProxyConfig):
 class AniMangaBot(Plugin):
     url = "https://graphql.anilist.co"
     headers = {
-        "User-Agent": "AniMangaBot/1.1.1"
+        "User-Agent": "AniMangaBot/1.2.0"
     }
 
     async def start(self) -> None:
@@ -285,7 +285,7 @@ class AniMangaBot(Plugin):
         if data["description"]:
             description_separator = "Notes:" if "Notes:" in data["description"] else "Note:"
             description = data["description"].split(description_separator)[0]
-        return description
+        return description.rstrip().removesuffix("<i>")
 
     async def _parse_votes(self, data: Any) -> int:
         """
@@ -360,91 +360,75 @@ class AniMangaBot(Plugin):
 
         # Main table
         # Title and description
-        main_col1 = ""
-        main_col1 += await self._get_titles(data)
+        main_section = ""
+        main_section += await self._get_titles(data)
         body += await self._get_titles(data, False)
 
         # Score
-        main_col1 += await self._get_score(data)
+        main_section += await self._get_score(data)
         body += await self._get_score(data, False)
 
         # Description
-        main_col1 += await self._get_description(data)
+        main_section += await self._get_description(data)
         body += await self._get_description(data, False)
 
         # Image
-        main_table = await self._get_main_table(data, main_col1)
-        if data.image:
-            body += (
-                f"> {await self._get_image(
-                    data.image,
-                    f"Poster for {data.title_en if data.title_en else data.title_ro}",
-                    (0, 230),
-                    False
-                )}"
-                "  \n>  \n"
-            )
+        poster = await self._get_poster(data)
+        body += await self._get_poster(data, False)
 
         # Details table
         # Other titles
-        details_content = await self._get_other_titles(data)
+        details_section = await self._get_other_titles(data)
         body += await self._get_other_titles(data, False)
 
         # Format
-        details_content += await self._get_format(data)
+        details_section += await self._get_format(data)
         body += await self._get_format(data, False)
 
         # Status and next episode date
-        details_content += await self._get_status_next_episode(data)
+        details_section += await self._get_status_next_episode(data)
         body += await self._get_status_next_episode(data, False)
 
         # Dates, season
-        details_content += await self._get_dates_season(data)
+        details_section += await self._get_dates_season(data)
         body += await self._get_dates_season(data, False)
 
         # Studios
-        details_content += await self._get_studios(data)
+        details_section += await self._get_studios(data)
         body += await self._get_studios(data, False)
 
         # Links
-        details_content += await self._get_links(data)
+        details_section += await self._get_links(data)
         body += await self._get_links(data, False)
 
         # Genres
-        details_content += await self._get_genres(data)
+        details_section += await self._get_genres(data)
         body += await self._get_genres(data, False)
 
         # Tags
-        details_content += await self._get_tags(data)
+        details_section += await self._get_tags(data)
         body += await self._get_tags(data, False)
 
-        details_table = (
-            "<div>"
-            "<details><summary><b>DETAILS </b></summary>"
-            f"<table><tr><td><p>{details_content}</p></td></tr></table>"
-            "</details>"
-            "</div>"
-        )
-
         # Links table
-        links_table = ""
+        links_section = ""
         if data.relations or len(other) > 1:
             # Related entries
-            links_col1 = await self._get_related_entries(data)
+            links_p1 = await self._get_related_entries(data)
             body += await self._get_related_entries(data, False)
 
             # Other results
-            links_col2 = await self._get_other_results(data, other)
+            links_p2 = await self._get_other_results(data, other)
             body += await self._get_other_results(data, other, False)
 
-            links_table = await self._get_links_table(links_col1, links_col2)
+            links_section = await self._get_links_section(links_p1, links_p2)
 
         body += "> **Results from AniList**"
         html = (
             "<blockquote>"
-            f"{main_table}"
-            f"{details_table}"
-            f"{links_table}"
+            f"<div>{main_section}</div>"
+            f"<div>{await self._get_details("POSTER", poster)}</div>"
+            f"<div>{await self._get_details("DETAILS", details_section)}</div>"
+            f"<div>{await self._get_details("LINKS", links_section)}</div>"
             "<p><b><sub>Results from AniList</sub></b></p>"
             "</blockquote>"
         )
@@ -455,6 +439,11 @@ class AniMangaBot(Plugin):
             body=body,
             formatted_body=html
         )
+
+    async def _get_details(self, title: str, content: str) -> str:
+        if not content or not title:
+            return ""
+        return f"<details><summary><b>{title} </b></summary>{content}</details>"
 
     async def _get_link(self, url: str, text: str, is_html: bool = True) -> str:
         """
@@ -574,18 +563,19 @@ class AniMangaBot(Plugin):
             return f"<img src=\"{src}\" alt=\"{alt}\" {width}{height}/>"
         return f"![{alt}]({src})"
 
-    async def _get_main_table(self, data: AniMangaData, col1: str) -> str:
+    async def _get_poster(self, data: AniMangaData, is_html: bool = True) -> str:
         # Image
-        if data.image:
-            return (
-                f"<div><table><tr><td>{col1}</td>"
-                f"<td>{await self._get_image(
-                    data.image,
-                    f"Poster for {data.title_en if data.title_en else data.title_ro}",
-                    (0, 230)
-                )}</td></tr></table></div>"
+        if not data.image:
+            return ""
+        image = await self._get_image(
+                data.image,
+                f"Poster for {data.title_en if data.title_en else data.title_ro}",
+                (0, 300),
+                is_html
             )
-        return f"<table><tr><td>{col1}</td></tr></table>"
+        if is_html:
+            return image
+        return f"{image}  \n>  \n"
 
     async def _get_other_titles(self, data: AniMangaData, is_html: bool = True) -> str:
         """
@@ -855,19 +845,10 @@ class AniMangaBot(Plugin):
                     result += "  \n>  \n"
         return result
 
-    async def _get_links_table(self, col1: str, col2: str) -> str:
-        col1 = f"<td><p>{col1}</p></td>" if col1 else ""
-        col2 = f"<td><p>{col2}</p></td>" if col2 else ""
-        return (
-            "<div>"
-            "<details><summary><b>LINKS </b></summary>"
-            "<table><tr>"
-            f"{col1}"
-            f"{col2}"
-            "</tr></table>"
-            "</details>"
-            "</div>"
-        )
+    async def _get_links_section(self, col1: str, col2: str) -> str:
+        col1 = f"<div>{col1}</div>" if col1 else ""
+        col2 = f"<div>{col2}</div>" if col2 else ""
+        return f"{col1}{col2}"
 
     async def _get_duration(self, time: int) -> str:
         """

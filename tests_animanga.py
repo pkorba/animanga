@@ -463,7 +463,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.end_date, "20 Dec 2024")
         self.assertEqual(
             result.description,
-            "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>\n\n"
+            "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>"
         )
         self.assertEqual(result.average_score, 84)
         self.assertEqual(result.mean_score, 85)
@@ -791,7 +791,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.end_date, "20 Dec 2024")
         self.assertEqual(
             result.description,
-            "Desctiption!<br><br>\n(Source: VIZ Media) <br><br>\n\n"
+            "Desctiption!<br><br>\n(Source: VIZ Media) <br><br>"
         )
         self.assertEqual(result.average_score, 84)
         self.assertEqual(result.mean_score, 85)
@@ -1072,7 +1072,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                         "<br><br>\n\nNotes: <br>\n- Some notes"
                     )
                 },
-                "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>\n\n"
+                "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>"
             ),
             (
                 {
@@ -1081,7 +1081,25 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                         "<br><br>\n\nNote: <br>\n- A note"
                     )
                 },
+                "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>"
+            ),
+            (
+                {
+                    "description": (
+                        "Desctiption!<br><br>\n(Source: Crunchyroll) "
+                        "<br><br>\n\n<i>Note: <br>\n- A note"
+                    )
+                },
                 "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>\n\n"
+            ),
+            (
+                {
+                    "description": (
+                        "Desctiption!<br><br>\n(Source: Crunchyroll) "
+                        "<br><br><i> Note: <br>\n- A note"
+                    )
+                },
+                "Desctiption!<br><br>\n(Source: Crunchyroll) <br><br>"
             ),
             (
                 {
@@ -1748,7 +1766,7 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                 # Assert
                 self.assertEqual(res, result)
 
-    async def test_get_main_table(self):
+    async def test_get_poster(self):
         # Arrange
         data = AniMangaData()
         input_data = (
@@ -1756,41 +1774,55 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                 "https://example.com",
                 "Romaji",
                 "English",
-                "column",
                 (
-                    '<div><table><tr><td>column</td><td>'
-                    '<img src="https://example.com" alt="Poster for English" height="230" />'
-                    '</td></tr></table></div>'
-                )
+                    '<img src="https://example.com" alt="Poster for English" height="300" />'
+                ),
+                True
+            ),
+            (
+                "https://example.com",
+                "Romaji",
+                "English",
+                (
+                    '![Poster for English](https://example.com)  \n>  \n'
+                ),
+                False
             ),
             (
                 None,
                 "Romaji",
                 None,
-                "column",
-                "<table><tr><td>column</td></tr></table>"
+                "",
+                True
             ),
             (
                 "https://example.com",
                 "Romaji",
                 None,
-                "column",
                 (
-                    '<div><table><tr><td>column</td><td>'
-                    '<img src="https://example.com" alt="Poster for Romaji" height="230" />'
-                    '</td></tr></table></div>'
-                )
+                    '<img src="https://example.com" alt="Poster for Romaji" height="300" />'
+                ),
+                True
+            ),
+            (
+                "https://example.com",
+                "Romaji",
+                None,
+                (
+                    '![Poster for Romaji](https://example.com)  \n>  \n'
+                ),
+                False
             ),
         )
         for elem in input_data:
             data.image = elem[0]
             data.title_ro = elem[1]
             data.title_en = elem[2]
-            col = elem[3]
-            result = elem[4]
+            result = elem[3]
+            is_html = elem[4]
             with self.subTest():
                 # Act
-                res = await self.bot._get_main_table(data, col)
+                res = await self.bot._get_poster(data, is_html)
 
                 # Assert
                 self.assertEqual(res, result)
@@ -2541,52 +2573,29 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                 # Assert
                 self.assertEqual(res, result)
 
-    async def test_get_links_table(self):
+    async def test_get_links_section(self):
         # Arrange
         input_data = (
             (
                 "col1",
                 "col2",
-                "<div>"
-                "<details><summary><b>LINKS </b></summary>"
-                "<table><tr>"
-                "<td><p>col1</p></td>"
-                "<td><p>col2</p></td>"
-                "</tr></table>"
-                "</details>"
-                "</div>"
+                "<div>col1</div>"
+                "<div>col2</div>"
             ),
             (
                 "",
                 "col2",
-                "<div>"
-                "<details><summary><b>LINKS </b></summary>"
-                "<table><tr>"
-                "<td><p>col2</p></td>"
-                "</tr></table>"
-                "</details>"
-                "</div>"
+                "<div>col2</div>"
             ),
             (
                 "col1",
                 "",
-                "<div>"
-                "<details><summary><b>LINKS </b></summary>"
-                "<table><tr>"
-                "<td><p>col1</p></td>"
-                "</tr></table>"
-                "</details>"
-                "</div>"
+                "<div>col1</div>"
             ),
             (
                 "",
                 "",
-                "<div>"
-                "<details><summary><b>LINKS </b></summary>"
-                "<table><tr>"
-                "</tr></table>"
-                "</details>"
-                "</div>"
+                ""
             )
         )
         for elem in input_data:
@@ -2595,11 +2604,38 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
             result = elem[2]
             with self.subTest():
                 # Act
-                res = await self.bot._get_links_table(col1, col2)
+                res = await self.bot._get_links_section(col1, col2)
 
                 # Assert
                 self.assertEqual(res, result)
 
+    async def test_get_details(self):
+        # Arrange
+        data = (
+            (
+                "<details><summary><b>title </b></summary>content</details>",
+                "title",
+                "content"
+            ),
+            (
+                "",
+                "",
+                "content"
+            ),
+            (
+                "",
+                "title",
+                ""
+            )
+        )
+
+        for elem in data:
+            with self.subTest():
+                # Act
+                res = await self.bot._get_details(elem[1], elem[2])
+
+            # Assert
+            self.assertEqual(res, elem[0])
 
 if __name__ == '__main__':
     unittest.main()
