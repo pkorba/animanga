@@ -1775,7 +1775,8 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                 "Romaji",
                 "English",
                 (
-                    '<img src="https://example.com" alt="Poster for English" height="300" />'
+                    '<img src="https://example.com" alt="Poster for English" '
+                    'width="230" height="325" />'
                 ),
                 True
             ),
@@ -1800,7 +1801,8 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
                 "Romaji",
                 None,
                 (
-                    '<img src="https://example.com" alt="Poster for Romaji" height="300" />'
+                    '<img src="https://example.com" alt="Poster for Romaji" '
+                    'width="230" height="325" />'
                 ),
                 True
             ),
@@ -2636,6 +2638,41 @@ class TestAniMangaBot(unittest.IsolatedAsyncioTestCase):
 
             # Assert
             self.assertEqual(res, elem[0])
+
+    async def test_get_image_dimensions_when_correct_data_then_return_dimensions(self):
+        # Arrange
+        # white 5x10 png rectangle
+        image = (
+            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x05\x00\x00\x00\n\x08\x06'
+            b'\x00\x00\x00|9\x940\x00\x00\x00\tpHYs\x00\x00\x0e\xc4\x00\x00\x0e\xc4\x01'
+            b'\x95+\x0e\x1b\x00\x00\x00\x15IDAT\x08\x99c\xfc\xff\xff\xff\x7f\x064\xc0'
+            b'\x84.0\x94\x04\x01C\xf5\x04\x10\xadS\xf5\xda\x00\x00\x00\x00IEND\xaeB`\x82'
+        )
+
+        # Act
+        width, height = self.bot._get_image_dimensions(image)
+
+        # Assert
+        self.assertEqual(width, 5)
+        self.assertEqual(height, 10)
+
+    async def test_get_image_dimensions_when_error_then_return_default_values(self):
+        # Arrange
+        image = "string"
+        with self.assertLogs(self.bot.log, level='ERROR') as logger:
+            # Act
+            width, height = self.bot._get_image_dimensions(image)
+
+            # Assert
+            self.assertEqual(width, 230)
+            self.assertEqual(height, 325)
+            self.assertEqual(
+                [
+                    "ERROR:testlogger:Error reading image dimensions: "
+                    "a bytes-like object is required, not 'str'"
+                ],
+                logger.output
+            )
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,14 +1,15 @@
+import io
 import mimetypes
 from datetime import datetime
-from typing import Type, Any
+from typing import Any, Tuple, Type
 
+from PIL import Image, UnidentifiedImageError
 from aiohttp import ClientTimeout, ClientError
+from maubot import Plugin, MessageEvent
+from maubot.handlers import command
 from mautrix.errors import MatrixResponseError
 from mautrix.types import TextMessageEventContent, MessageType, Format
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
-from maubot import Plugin, MessageEvent
-from maubot.handlers import command
-
 from .resources import queries
 from .resources.datastructures import (
     SearchResult,
@@ -30,8 +31,10 @@ class Config(BaseProxyConfig):
 class AniMangaBot(Plugin):
     url = "https://graphql.anilist.co"
     headers = {
-        "User-Agent": "AniMangaBot/1.2.0"
+        "User-Agent": "AniMangaBot/1.3.0"
     }
+    width = 230
+    height = 325
 
     async def start(self) -> None:
         await super().start()
@@ -570,7 +573,7 @@ class AniMangaBot(Plugin):
         image = await self._get_image(
                 data.image,
                 f"Poster for {data.title_en if data.title_en else data.title_ro}",
-                (0, 300),
+                (self.width, self.height),
                 is_html
             )
         if is_html:
@@ -913,11 +916,29 @@ class AniMangaBot(Plugin):
                 filename=f"image{extension}",
                 size=len(data)
             )
+            self.width, self.height = await self.loop.run_in_executor(
+                None,
+                self._get_image_dimensions,
+                data
+            )
         except ClientError as e:
             self.log.error(f"Downloading image - connection failed: {e}")
         except (ValueError, MatrixResponseError) as e:
             self.log.error(f"Uploading image to Matrix server: {e}")
         return image_url
+
+    def _get_image_dimensions(self, image: bytes) -> Tuple[int, int]:
+        """
+        Examine image dimensions
+        :param image: image data as bytes
+        :return: Tuple with image width and height
+        """
+        try:
+            img = Image.open(io.BytesIO(image))
+            return img.width, img.height
+        except (ValueError, TypeError, FileNotFoundError, UnidentifiedImageError) as e:
+            self.log.error(f"Error reading image dimensions: {e}")
+            return 230, 325
 
     @classmethod
     def get_config_class(cls) -> Type[BaseProxyConfig]:
