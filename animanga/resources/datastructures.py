@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Tuple
 
 
 @dataclass
@@ -29,14 +30,14 @@ class AniMangaData:
     nsfw: bool = False,
     format: str = "",
     status: str = "",
-    genres: list[str] = [],
-    tags: list[str] = [],
+    genres: list[Tuple[str, int]] = [],
+    tags: list[Tuple[str, int]] = [],
     episodes: int = 0,
     season: str = "",
     season_year: int = 0,
     next_episode_num: int = 0,
     next_episode_date: str = "",
-    duration: int = 0,
+    duration: str = "",
     relations: list[tuple[str, SearchResult]] = [],
     studios: set[tuple[str, int]] = {},
     studio_number: int = 0,

@@ -26,10 +26,12 @@ class Config(BaseProxyConfig):
     def do_update(self, helper: ConfigUpdateHelper) -> None:
         helper.copy("max_results")
         helper.copy("max_relations")
+        helper.copy("use_mal_api")
 
 
 class AniMangaBot(Plugin):
-    url = "https://graphql.anilist.co"
+    al_url = "https://graphql.anilist.co"
+    mal_url = "https://api.tenrai.org/v1"
     headers = {
         "User-Agent": "AniMangaBot/1.3.0"
     }
@@ -42,7 +44,7 @@ class AniMangaBot(Plugin):
 
     @command.new(
         name="anime",
-        help="Search for titles of anime on AniList",
+        help="Search for titles of anime on AniList / MyAnimeList",
         require_subcommand=False,
         arg_fallthrough=False
     )
@@ -56,11 +58,14 @@ class AniMangaBot(Plugin):
                 "> !anime <title>"
             )
             return
-        await self.al_message_handler(evt, title, "ANIME")
+        if self.config["use_mal_api"]:
+            await self.mal_message_handler(evt, title, "ANIME")
+        else:
+            await self.al_message_handler(evt, title, "ANIME")
 
     @command.new(
         name="manga",
-        help="Search for titles of manga on AniList",
+        help="Search for titles of manga on AniList / MyAnimeList",
         require_subcommand=False,
         arg_fallthrough=False
     )
@@ -74,7 +79,10 @@ class AniMangaBot(Plugin):
                 "> !manga <title>"
             )
             return
-        await self.al_message_handler(evt, title, "MANGA")
+        if self.config["use_mal_api"]:
+            await self.mal_message_handler(evt, title, "MANGA")
+        else:
+            await self.al_message_handler(evt, title, "MANGA")
 
     async def al_message_handler(self, evt: MessageEvent, title: str, media_type: str) -> None:
         """
@@ -143,7 +151,7 @@ class AniMangaBot(Plugin):
         timeout = ClientTimeout(total=20)
         try:
             response = await self.http.post(
-                self.url,
+                self.al_url,
                 json=json,
                 headers=self.headers,
                 timeout=timeout,
@@ -202,17 +210,17 @@ class AniMangaBot(Plugin):
             start_date=await self._parse_date(data, "startDate"),
             end_date=await self._parse_date(data, "endDate"),
             description=await self._parse_description(data),
-            average_score=data["averageScore"],
-            mean_score=data["meanScore"],
+            average_score=data["averageScore"] * 10 if data["averageScore"] else None,
+            mean_score=data["meanScore"] * 10 if data["meanScore"] else None,
             # Number of votes is the sum of votes of each score. API doesn't provide the total value
             votes=await self._parse_votes(data),
             favorites=data["favourites"],
             nsfw=data["isAdult"],
             format=media_formats.get(data["format"], data["format"]),
             status=statuses.get(data["status"], data["status"]),
-            genres=data["genres"],
+            genres=[(genre, 0) for genre in data["genres"]],
             # Do not include tags that are marked as spoilers
-            tags=[tag["name"] for tag in data["tags"] if not tag["isMediaSpoiler"]],
+            tags=[(tag["name"], 0) for tag in data["tags"] if not tag["isMediaSpoiler"]],
             relations=relations[:self.get_max_relations()],
             links=[(link["site"], link["url"]) for link in data["externalLinks"]],
         )
@@ -226,7 +234,7 @@ class AniMangaBot(Plugin):
                 if data["nextAiringEpisode"] else None
             )
             result.next_episode_date = await self._parse_next_airing_episode(data)
-            result.duration = data["duration"]
+            result.duration = await self._parse_duration(data["duration"])
             result.studios = studios
             result.studio_number = studio_number
             result.trailer = (
@@ -248,6 +256,207 @@ class AniMangaBot(Plugin):
             result.volumes = data["volumes"]
             result.chapters = data["chapters"]
         return result
+
+    async def mal_message_handler(self, evt: MessageEvent, title: str, media_type: str) -> None:
+        """
+        Commands the process of creating message for the user
+        :param evt: user's message event
+        :param title: anime or manga title
+        :param media_type: type of medium
+        """
+        # Search for entries by title
+        try:
+            params = {
+                "q": title,
+                "limit": str(self.get_max_results()),
+                "order_by": "popularity"
+            }
+            results_json = await self._mal_get_results(params, media_type.lower())
+        except ClientError as e:
+            await evt.reply(f"> {e}")
+            return
+        # Parse results
+        results = await self._mal_parse_results(results_json)
+        if not results:
+            await evt.reply(f"Failed to find results for *{title}*")
+            return
+
+        # Get detailed information about the first entry from the previous query
+        try:
+            main_result_json = await self._mal_get_main_result(results[0].id, media_type)
+        except ClientError as e:
+            await evt.reply(f"> {e}")
+            return
+        # Parse the detailed result
+        main_result = await self._mal_parse_main_result(main_result_json)
+        if not main_result:
+            await evt.reply(
+                f"> There happened to be a problem while fetching results for **{title}**"
+            )
+            return
+        # Get the thumbnail
+        if main_result.image:
+            main_result.image = await self.get_matrix_image_url(main_result.image)
+
+        # Prepare and send message
+        content = await self._prepare_message(main_result, results)
+        if content:
+            await evt.reply(content)
+        else:
+            await evt.reply("> There happened to be a problem while preparing the summary.")
+
+    async def _mal_get_results(self, params: Any, media_type: str) -> Any:
+        """
+        Hit Tenrai API to get the results.
+        :param json: params for the query
+        :return: Tenrai API response
+        """
+        timeout = ClientTimeout(total=20)
+        try:
+            response = await self.http.get(
+                f"{self.mal_url}/{media_type}",
+                params=params,
+                headers=self.headers,
+                timeout=timeout,
+                raise_for_status=True
+            )
+            return await response.json()
+        except ClientError as e:
+            self.log.error(f"Connection to Tenrai API failed: {e}")
+            raise ClientError("Connection to Tenrai API failed.") from e
+
+    async def _mal_get_main_result(self, mal_id: int, media_type: str) -> Any:
+        """
+        Hit Tenrai API to get the results.
+        :param json: params for the query
+        :return: Tenrai API response
+        """
+        timeout = ClientTimeout(total=20)
+        try:
+            response = await self.http.get(
+                f"{self.mal_url}/{media_type.lower()}/{mal_id}/full",
+                headers=self.headers,
+                timeout=timeout,
+                raise_for_status=True
+            )
+            return await response.json()
+        except ClientError as e:
+            self.log.error(f"Connection to Tenrai API failed: {e}")
+            raise ClientError("Connection to Tenrai API failed.") from e
+
+    async def _mal_parse_results(self, data: Any) -> list[SearchResult]:
+        """
+        Parse the initial results from Tenrai API
+        :param data: Tenrai API response
+        :return: list of search results
+        """
+        if data.get("error", None):
+            self.log.error(f"Error parsing results: {data["message"]}")
+            return []
+        results: list[SearchResult] = []
+        for result in data["data"]:
+            sr = SearchResult(
+                id=result["mal_id"],
+                id_mal=0,
+                title_ro=result["title"],
+                title_en=result["title_english"],
+            )
+            results.append(sr)
+        return results
+
+    async def _mal_parse_main_result(self, data: Any) -> AniMangaData | None:
+        """
+        Parse the main result from AniList API
+        :param data: AniList API response
+        :return: AniMangaData object or None if there are errors
+        """
+        if data.get("error", None):
+            self.log.error(f"Error parsing results: {data["message"]}")
+            return None
+        data = data["data"]
+        relations = await self._mal_parse_relations(data["relations"])
+        result = AniMangaData(
+            id=data["mal_id"],
+            id_mal=0,
+            title_ro=data["title"],
+            title_en=data["title_english"],
+            title_ja=data["title_japanese"],
+            type="ANIME" if data["url"].startswith("https://myanimelist.net/anime") else "MANGA",
+            image=data["images"]["webp"]["image_url"],
+            description=data["synopsis"],
+            average_score=data["score"] * 100 if data["score"] else None,
+            mean_score=data["score"] * 100 if data["score"] else None,
+            votes=data["scored_by"],
+            favorites=data["favorites"],
+            nsfw=False,
+            format=data["type"],
+            status=data["status"],
+            genres=[(genre["name"], genre["mal_id"]) for genre in data["genres"]] +
+                   [(genre["name"], genre["mal_id"]) for genre in data["explicit_genres"]],
+            tags=[(tag["name"], tag["mal_id"]) for tag in data["themes"]] +
+                 [(tag["name"], tag["mal_id"]) for tag in data["demographics"]],
+            relations=relations[:self.get_max_relations()],
+            links=[(link["name"], link["url"]) for link in data["external"]] +
+                  [(link["name"], link["url"]) for link in data.get("streaming", [])],
+        )
+        if result.type == "ANIME":
+            result.episodes = data["episodes"]
+            result.season = data["season"].title() if data["season"] else ""
+            result.season_year = data["year"]
+            result.next_episode_num = 0
+            result.next_episode_date = data["broadcast"]["string"]
+            result.duration = data["duration"].rstrip("per ep") if data["duration"] else ""
+            result.studios = {(st["name"], st["mal_id"]) for st in data["studios"]}
+            result.studio_number = (
+                    len(data["studios"]) +
+                    len(data["producers"]) +
+                    len(data["licensors"])
+            )
+            result.trailer = (
+                ("youtube", data["trailer"].get("youtube_id", ""))
+                if data["trailer"] else ()
+            )
+            result.volumes = 0
+            result.chapters = 0
+            result.start_date = await self._parse_date(data["aired"]["prop"], "from")
+            result.end_date = await self._parse_date(data["aired"]["prop"], "to")
+        else:
+            result.episodes = 0
+            result.season = ""
+            result.season_year = 0
+            result.next_episode_num = 0
+            result.next_episode_date = ""
+            result.duration = 0
+            result.studios = set()
+            result.studio_number = 0
+            result.trailer = ()
+            result.volumes = data["volumes"]
+            result.chapters = data["chapters"]
+            result.start_date = await self._parse_date(data["published"]["prop"], "from")
+            result.end_date = await self._parse_date(data["published"]["prop"], "to")
+        return result
+
+    async def _mal_parse_relations(self, relations_raw: Any) -> list[tuple[Any, SearchResult]]:
+        """
+        Sort relation types in order defined in relation_types dictionary.
+        :param relations_raw: raw list od relations from API
+        :return: sorted list of relations
+        """
+        relations = []
+        for relation in relations_raw:
+            for entry in relation["entry"]:
+                rel = (
+                    relation["relation"],
+                    SearchResult(
+                        id=entry["mal_id"],
+                        id_mal=0,
+                        title_en="",
+                        title_ro=entry["name"],
+                        media_type=entry["type"].upper(),
+                    )
+                )
+                relations.append(rel)
+        return relations
 
     async def _parse_relations(self, relations_raw: Any) -> list[tuple[Any, SearchResult]]:
         """
@@ -313,13 +522,13 @@ class AniMangaBot(Plugin):
             f"{data[date_key]['year'] if data[date_key]['year'] else ''}"
         )
 
-    async def _parse_next_airing_episode(self, data: Any) -> str | None:
+    async def _parse_next_airing_episode(self, data: Any) -> str:
         """
         Get date and time for the next airing episode
         :param data: JSON data from API
         :return: formatted date
         """
-        next_episode_date = None
+        next_episode_date = ""
         if data["nextAiringEpisode"] and data["nextAiringEpisode"].get("airingAt", 0):
             next_episode_date = datetime.fromtimestamp(
                 data["nextAiringEpisode"]["airingAt"]
@@ -432,7 +641,9 @@ class AniMangaBot(Plugin):
             f"<div>{await self._get_details("POSTER", poster)}</div>"
             f"<div>{await self._get_details("DETAILS", details_section)}</div>"
             f"<div>{await self._get_details("LINKS", links_section)}</div>"
-            "<p><b><sub>Results from AniList</sub></b></p>"
+            "<p><b><sub>"
+            f"Results from {"MyAnimeList" if self.config["use_mal_api"] else "AniList"}"
+            "</sub></b></p>"
             "</blockquote>"
         )
 
@@ -475,7 +686,10 @@ class AniMangaBot(Plugin):
         media_type = data.type.lower() if data.type else "anime"
         # Title and description - panel 1
         title = data.title_en if data.title_en else data.title_ro
-        al_url = f"https://anilist.co/{media_type}/{data.id}"
+        al_url = (
+            f"https://myanimelist.net/{media_type}/{data.id}"
+            if self.config["use_mal_api"] else f"https://anilist.co/{media_type}/{data.id}"
+        )
         mal_url = f"https://myanimelist.net/{media_type}/{data.id_mal}"
         result = ""
 
@@ -509,9 +723,9 @@ class AniMangaBot(Plugin):
         result = ""
         score = None
         if data.average_score:
-            score = float(data.average_score) / 10
+            score = float(data.average_score) / 100
         elif data.mean_score:
-            score = float(data.mean_score) / 10
+            score = float(data.mean_score) / 100
         if score:
             vote_data = f"⭐ {score}/10"
             if data.votes:
@@ -610,7 +824,7 @@ class AniMangaBot(Plugin):
             if data.episodes:
                 media_format += f" | {data.episodes} episode{'s' if data.episodes > 1 else ''}"
                 if data.duration:
-                    duration = await self._get_duration(data.duration)
+                    duration = data.duration
                     media_format += f" ({duration}{' per episode' if data.episodes > 1 else ''})"
             if data.volumes:
                 media_format += f" | {data.volumes} volumes"
@@ -677,7 +891,9 @@ class AniMangaBot(Plugin):
         if data.studios:
             studios = ", ".join([
                     await self._get_link(
-                        f"https://anilist.co/studio/{studio[1]}",
+                        f"https://myanimelist.net/anime/producer/{studio[1]}"
+                        if self.config["use_mal_api"]
+                        else f"https://anilist.co/studio/{studio[1]}",
                         studio[0],
                         is_html
                     )
@@ -730,8 +946,10 @@ class AniMangaBot(Plugin):
         if data.genres:
             genres = ", ".join([
                 await self._get_link(
-                    f"https://anilist.co/search/{media_type}/{genre.replace(' ', '%20')}",
-                    genre,
+                    f"https://myanimelist.net/{media_type}/genre/{genre[1]}"
+                    if self.config["use_mal_api"]
+                    else f"https://anilist.co/search/{media_type}/{genre[0].replace(' ', '%20')}",
+                    genre[0],
                     is_html
                 ) for genre in data.genres
             ])
@@ -753,8 +971,10 @@ class AniMangaBot(Plugin):
         if data.tags:
             tags = ", ".join([
                 await self._get_link(
-                    f"https://anilist.co/search/{media_type}?genres={tag.replace(' ', '%20')}",
-                    tag,
+                    f"https://myanimelist.net/{media_type}/genre/{tag[1]}"
+                    if self.config["use_mal_api"] else
+                    f"https://anilist.co/search/{media_type}?genres={tag[0].replace(' ', '%20')}",
+                    tag[0],
                     is_html
                 ) for tag in data.tags
             ])
@@ -778,7 +998,9 @@ class AniMangaBot(Plugin):
             for i, rel in enumerate(data.relations):
                 base_url = rel[1].media_type.lower()
                 al_link = await self._get_link(
-                    f"https://anilist.co/{base_url}/{rel[1].id}",
+                    f"https://myanimelist.net/{base_url}/{rel[1].id}"
+                    if self.config["use_mal_api"]
+                    else f"https://anilist.co/{base_url}/{rel[1].id}",
                     rel[1].title_en if rel[1].title_en else rel[1].title_ro,
                     is_html
                 )
@@ -824,7 +1046,9 @@ class AniMangaBot(Plugin):
             for i, elem in enumerate(other[1:], start=1):
                 al_title = elem.title_en if elem.title_en else elem.title_ro
                 al_link = await self._get_link(
-                    f"https://anilist.co/{media_type}/{elem.id}",
+                    f"https://myanimelist.net/{media_type}/{elem.id}"
+                    if self.config["use_mal_api"]
+                    else f"https://anilist.co/{media_type}/{elem.id}",
                     al_title,
                     is_html
                 )
@@ -853,7 +1077,7 @@ class AniMangaBot(Plugin):
         col2 = f"<div>{col2}</div>" if col2 else ""
         return f"{col1}{col2}"
 
-    async def _get_duration(self, time: int) -> str:
+    async def _parse_duration(self, time: int) -> str:
         """
         Convert minutes to human-readable format
         :param time: minutes
