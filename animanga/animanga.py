@@ -568,20 +568,16 @@ class AniMangaBot(Plugin):
         :param other: list of initial search results
         :return: text message for the user
         """
-        body = ""
-
-        # Main table
         # Title and description
-        main_section = ""
-        main_section += await self._get_titles(data)
-        body += await self._get_titles(data, False)
+        header = await self._get_titles(data)
+        body = await self._get_titles(data, False)
 
         # Score
-        main_section += await self._get_score(data)
+        header += await self._get_score(data)
         body += await self._get_score(data, False)
 
         # Description
-        main_section += await self._get_description(data)
+        main_section = await self._get_description(data)
         body += await self._get_description(data, False)
 
         # Image
@@ -637,7 +633,8 @@ class AniMangaBot(Plugin):
         body += "> **Results from AniList**"
         html = (
             "<blockquote>"
-            f"<div>{main_section}</div>"
+            f"<div>{header}</div>"
+            f"<div>{await self._get_details("SYNOPSIS", main_section)}</div>"
             f"<div>{await self._get_details("POSTER", poster)}</div>"
             f"<div>{await self._get_details("DETAILS", details_section)}</div>"
             f"<div>{await self._get_details("LINKS", links_section)}</div>"
@@ -729,9 +726,9 @@ class AniMangaBot(Plugin):
         if score:
             vote_data = f"⭐ {score}/10"
             if data.votes:
-                vote_data += f" | 👤 {data.votes} votes"
+                vote_data += f" | 👤 {data.votes:_} votes".replace("_", " ")
             if data.favorites:
-                vote_data += f" | ❤️ {data.favorites} favorites"
+                vote_data += f" | ❤️ {data.favorites:_} favorites".replace("_", " ")
             if is_html:
                 result = f"<blockquote><b>Score:</b> {vote_data}</blockquote>"
             else:
