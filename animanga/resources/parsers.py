@@ -347,6 +347,8 @@ class Parser:
         :param time: minutes
         :return: formatted time X h Y min / X h / X min
         """
+        if not time:
+            return ""
         if time >= 60:
             hours = time // 60
             minutes = time % 60
