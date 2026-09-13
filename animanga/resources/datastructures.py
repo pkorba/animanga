@@ -44,7 +44,8 @@ class AniMangaData:
     links: list[tuple[str, str]] = [],
     volumes: int = 0,
     chapters: int = 0,
-    trailer: tuple[str, str] = ()
+    trailer: tuple[str, str] = (),
+    authors: list[tuple[str, str, int]] = [],
 
 
 media_formats = {

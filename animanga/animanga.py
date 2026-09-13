@@ -5,11 +5,11 @@ from typing import Any, Tuple, Type
 
 from PIL import Image, UnidentifiedImageError
 from aiohttp import ClientTimeout, ClientError
-from maubot import Plugin, MessageEvent
-from maubot.handlers import command
 from mautrix.errors import MatrixResponseError
 from mautrix.types import TextMessageEventContent, MessageType, Format
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
+from maubot import Plugin, MessageEvent
+from maubot.handlers import command
 from .resources import queries
 from .resources.datastructures import (
     SearchResult,
@@ -243,6 +243,7 @@ class AniMangaBot(Plugin):
             )
             result.volumes = 0
             result.chapters = 0
+            result.authors = []
         else:
             result.episodes = 0
             result.season = ""
@@ -255,6 +256,7 @@ class AniMangaBot(Plugin):
             result.trailer = ()
             result.volumes = data["volumes"]
             result.chapters = data["chapters"]
+            result.authors = await self._parse_authors(data["staff"]["edges"])
         return result
 
     async def mal_message_handler(self, evt: MessageEvent, title: str, media_type: str) -> None:
@@ -407,17 +409,14 @@ class AniMangaBot(Plugin):
             result.next_episode_date = data["broadcast"]["string"]
             result.duration = data["duration"].rstrip("per ep") if data["duration"] else ""
             result.studios = {(st["name"], st["mal_id"]) for st in data["studios"]}
-            result.studio_number = (
-                    len(data["studios"]) +
-                    len(data["producers"]) +
-                    len(data["licensors"])
-            )
+            result.studio_number = len(data["producers"]) + len(data["licensors"])
             result.trailer = (
                 ("youtube", data["trailer"].get("youtube_id", ""))
                 if data["trailer"] else ()
             )
             result.volumes = 0
             result.chapters = 0
+            result.authors = []
             result.start_date = await self._parse_date(data["aired"]["prop"], "from")
             result.end_date = await self._parse_date(data["aired"]["prop"], "to")
         else:
@@ -432,6 +431,10 @@ class AniMangaBot(Plugin):
             result.trailer = ()
             result.volumes = data["volumes"]
             result.chapters = data["chapters"]
+            result.authors = [
+                (author["name"], author["role"], author["mal_id"])
+                for author in data["authors"]
+            ]
             result.start_date = await self._parse_date(data["published"]["prop"], "from")
             result.end_date = await self._parse_date(data["published"]["prop"], "to")
         return result
@@ -557,6 +560,16 @@ class AniMangaBot(Plugin):
             studio_number = len(data["studios"]["edges"]) - len(studios)
         return studios, studio_number
 
+    async def _parse_authors(self, authors_raw: Any) -> list[Tuple[str, str, int]]:
+        authors: list[Tuple[str, str, int]] = []
+        allowed_roles = ["Story", "Art", "Story & Art", "Original Story", "Original Creator"]
+        for author in authors_raw:
+            if author["role"] in allowed_roles:
+                authors.append(
+                    (author["node"]["name"]["full"], author["role"], author["node"]["id"])
+                )
+        return authors
+
     async def _prepare_message(
             self,
             data: AniMangaData,
@@ -604,6 +617,10 @@ class AniMangaBot(Plugin):
         # Studios
         details_section += await self._get_studios(data)
         body += await self._get_studios(data, False)
+
+        # Authors
+        details_section += await self._get_authors(data)
+        body += await self._get_authors(data, False)
 
         # Links
         details_section += await self._get_links(data)
@@ -904,6 +921,32 @@ class AniMangaBot(Plugin):
                 result = f"<blockquote><b>Studios:</b> {studios}{other_studios}</blockquote>"
             else:
                 result = f"> > **Studios:** {studios}{other_studios}  \n>  \n"
+        return result
+
+    async def _get_authors(self, data: AniMangaData, is_html: bool = True) -> str:
+        """
+        Get list of genres related to an entry
+        :param data: AniMangaData
+        :param is_html: True for HTML, False for Markdown
+        :return: Genres section
+        """
+        if not data.authors:
+            return ""
+        authors = []
+        for author in data.authors:
+            link = await self._get_link(
+                f"https://myanimelist.net/people/{author[2]}"
+                if self.config["use_mal_api"]
+                else f"https://anilist.co/staff/{author[2]}",
+                author[0],
+                is_html
+            )
+            authors.append(f"{link} ({author[1]})")
+        authors_str = ", ".join(authors)
+        if is_html:
+            result = f"<blockquote><b>Authors:</b> {authors_str}</blockquote>"
+        else:
+            result = f"> > **Authors:** {authors_str}  \n>  \n"
         return result
 
     async def _get_links(self, data: AniMangaData, is_html: bool = True) -> str:

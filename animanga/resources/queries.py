@@ -159,6 +159,17 @@ query ($id: Int) {
             url
             site
         }
+        staff {
+            edges {
+                role
+                node {
+                    id
+                    name {
+                        full
+                    }
+                }
+            }
+        }
     }
 }
 """
