@@ -1,6 +1,6 @@
 # AniManga Bot
 
-A maubot plugin that allows you to search for anime and manga in AniList database.
+A maubot plugin that allows you to search for anime and manga in AniList or MyAnimeList (via [Tenrai API](https://tenrai.org/)) database.
 
 The plugin requires `pillow` Python package that is not a part of the default maubot installation. It can be installed the same way you [install maubot](https://docs.mau.fi/maubot/usage/setup/index.html#production-setup):
 
@@ -26,8 +26,9 @@ Type the title of the anime or manga:
 ## Configuration
 
 It's possible to change plugin's configuration in maubot's control panel. Available options:
-* `max_relations` - controls how many related entries will be displayed (defaults to 3)
-* `max_results` - controls how many results will be displayed (defaults to 4)
+* `max_relations` - controls how many related entries will be displayed (default: 3)
+* `max_results` - controls how many results will be displayed (default: 4)
+* `use_mal_api` - if `true` uses Tenrai API instead of AniList API (default: `false`)
 
 ## Disclaimer
 
