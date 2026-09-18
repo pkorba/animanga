@@ -94,6 +94,7 @@ class AniMangaBot(Plugin):
         """
         Remove or edit the existing result.
         :param evt: message event
+        :param key: emoji reaction
         """
         bot_message_id = evt.content.relates_to.event_id
         bot_message = await self.client.get_event(room_id=evt.room_id, event_id=bot_message_id)
@@ -119,29 +120,31 @@ class AniMangaBot(Plugin):
         # Check if the bot message has been edited. Edited message won't have 'Other results'
         # section, so only allow deleting the message
         if (
-                evt.content.relates_to.key != "👎️" and
+                key[0] != "👎️" and
                 bot_message.unsigned and
                 "m.relations" in bot_message.unsigned
         ):
             if "m.replace" in bot_message.unsigned["m.relations"]:
                 return
 
-        await self._try_edit(evt, bot_message, user_message)
+        await self._try_edit(evt, bot_message, user_message, key[0])
 
     async def _try_edit(
             self,
             evt: BaseRoomEvent,
             bot_message: MessageEvent,
-            user_message: MessageEvent
+            user_message: MessageEvent,
+            key: str
     ) -> None:
         """
         Remove or edit the message
         :param evt: event initiating the process
         :param bot_message: message to be deleted/edited
         :param user_message: message bot replied to
+        :param key: emoji key
         """
         # User requested message to be redacted
-        if evt.content.relates_to.key == "👎️":
+        if key == "👎️":
             await self.client.redact(
                 room_id=evt.room_id,
                 event_id=bot_message.event_id,
@@ -150,7 +153,7 @@ class AniMangaBot(Plugin):
             return
 
         # User requested to change the result
-        edit_id = result_indexes[evt.content.relates_to.key]
+        edit_id = result_indexes[key]
         media_ids = await self._get_other_media_ids(bot_message.content.formatted_body)
         if edit_id >= len(media_ids):
             return
