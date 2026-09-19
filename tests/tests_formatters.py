@@ -4,6 +4,7 @@ from mautrix.types import TextMessageEventContent
 from animanga.resources.datastructures import AniMangaData, SearchResult
 from .base_test import TestAniMangaBot
 
+
 class TestAniMangaFormatters(TestAniMangaBot):
     async def test_prepare_message_should_return_TextMessageEventContent(self):
         # Arrange
@@ -50,6 +51,34 @@ class TestAniMangaFormatters(TestAniMangaBot):
 
         # Assert
         self.assertIsInstance(result, TextMessageEventContent)
+
+    async def test_get_details(self):
+        # Arrange
+        data = (
+            (
+                "<details><summary><b>title </b></summary>content</details>",
+                "title",
+                "content"
+            ),
+            (
+                "",
+                "",
+                "content"
+            ),
+            (
+                "",
+                "title",
+                ""
+            )
+        )
+
+        for elem in data:
+            with self.subTest():
+                # Act
+                res = await self.bot.fmt._get_details(elem[1], elem[2])
+
+            # Assert
+            self.assertEqual(res, elem[0])
 
     async def test_get_link(self):
         # Arrange
@@ -648,7 +677,6 @@ class TestAniMangaFormatters(TestAniMangaBot):
     async def test_get_studios(self):
         # Arrange
         data = AniMangaData()
-        self.bot.fmt.config = {"use_mal_api": False}
         input_data = (
             (
                 {("Studio Name", 123), ("Studio Name 1", 321)},
@@ -663,13 +691,15 @@ class TestAniMangaFormatters(TestAniMangaBot):
                     '<a href="https://anilist.co/studio/321">Studio Name 1</a> '
                     '+ 5 others</blockquote>',
                 ],
-                True
+                True,
+                False
             ),
             (
                 set(),
                 0,
                 [""],
-                True
+                True,
+                False
             ),
             (
                 {("Studio Name", 123)},
@@ -678,6 +708,7 @@ class TestAniMangaFormatters(TestAniMangaBot):
                     '> > **Studios:** [Studio Name](https://anilist.co/studio/123) '
                     '+ 5 others  \n>  \n'
                 ],
+                False,
                 False
             ),
             (
@@ -688,7 +719,8 @@ class TestAniMangaFormatters(TestAniMangaBot):
                     '<a href="https://anilist.co/studio/123">Studio Name</a> '
                     '+ 1 other</blockquote>'
                 ],
-                True
+                True,
+                False
             ),
             (
                 {("Studio Name", 123)},
@@ -698,6 +730,18 @@ class TestAniMangaFormatters(TestAniMangaBot):
                     '<a href="https://anilist.co/studio/123">Studio Name</a>'
                     '</blockquote>'
                 ],
+                True,
+                False
+            ),
+            (
+                {("Studio Name", 123)},
+                0,
+                [
+                    '<blockquote><b>Studios:</b> '
+                    '<a href="https://myanimelist.net/anime/producer/123">Studio Name</a>'
+                    '</blockquote>'
+                ],
+                True,
                 True
             ),
         )
@@ -706,11 +750,77 @@ class TestAniMangaFormatters(TestAniMangaBot):
             data.studio_number = elem[1]
             result = elem[2]
             with self.subTest():
+                self.bot.fmt.config = {"use_mal_api": elem[4]}
                 # Act
                 res = await self.bot.fmt._get_studios(data, elem[3])
 
                 # Assert
                 self.assertIn(res, result)
+
+    async def test_get_authors(self):
+        # Arrange
+        data = AniMangaData()
+        input_data = (
+            (
+                [("John Wick", "Art", 69), ("Burt Simpson", "Story", 2137)],
+                "anime",
+                (
+                    '<blockquote><b>Authors:</b> '
+                    '<a href="https://anilist.co/staff/69">John Wick</a> (Art), '
+                    '<a href="https://anilist.co/staff/2137">Burt Simpson</a> (Story)'
+                    '</blockquote>'
+                ),
+                True,
+                False
+            ),
+            (
+                [("Burt Simpson", "Story", 2137)],
+                "manga",
+                (
+                    '<blockquote><b>Authors:</b> '
+                    '<a href="https://anilist.co/staff/2137">Burt Simpson</a> (Story)'
+                    '</blockquote>'
+                ),
+                True,
+                False
+            ),
+            (
+                [],
+                "manga",
+                "",
+                True,
+                False
+            ),
+            (
+                [("Burt Simpson", "Story", 2137)],
+                "",
+                '> > **Authors:** [Burt Simpson](https://anilist.co/staff/2137) (Story)  \n>  \n',
+                False,
+                False
+            ),
+            (
+                [("Burt Simpson", "Story", 2137)],
+                "manga",
+                (
+                    '<blockquote><b>Authors:</b> '
+                    '<a href="https://myanimelist.net/people/2137">Burt Simpson</a> (Story)'
+                    '</blockquote>'
+                ),
+                True,
+                True
+            ),
+        )
+        for elem in input_data:
+            data.authors = elem[0]
+            data.type = elem[1]
+            result = elem[2]
+            with self.subTest():
+                self.bot.fmt.config = {"use_mal_api": elem[4]}
+                # Act
+                res = await self.bot.fmt._get_authors(data, elem[3])
+
+                # Assert
+                self.assertEqual(res, result)
 
     async def test_get_links(self):
         # Arrange
@@ -793,10 +903,9 @@ class TestAniMangaFormatters(TestAniMangaBot):
     async def test_get_genres(self):
         # Arrange
         data = AniMangaData()
-        self.bot.fmt.config = {"use_mal_api": False}
         input_data = (
             (
-                [("Drama", 0), ("Slice of Life", 0)],
+                [("Drama", 1), ("Slice of Life", 2)],
                 "anime",
                 (
                     '<blockquote><b>Genres:</b> '
@@ -804,29 +913,55 @@ class TestAniMangaFormatters(TestAniMangaBot):
                     '<a href="https://anilist.co/search/anime/Slice%20of%20Life">Slice of Life</a>'
                     '</blockquote>'
                 ),
-                True
+                True,
+                False
             ),
             (
-                [("Drama", 0)],
+                [("Drama", 1)],
                 "manga",
                 (
                     '<blockquote><b>Genres:</b> '
                     '<a href="https://anilist.co/search/manga/Drama">Drama</a>'
                     '</blockquote>'
                 ),
-                True
+                True,
+                False
             ),
             (
                 [],
                 "manga",
                 "",
+                True,
+                False
+            ),
+            (
+                [("Drama", 1)],
+                "",
+                '> > **Genres:** [Drama](https://anilist.co/search/anime/Drama)  \n>  \n',
+                False,
+                False
+            ),
+            (
+                [("Drama", 1)],
+                "manga",
+                (
+                    '<blockquote><b>Genres:</b> '
+                    '<a href="https://myanimelist.net/manga/genre/1">Drama</a>'
+                    '</blockquote>'
+                ),
+                True,
                 True
             ),
             (
-                [("Drama", 0)],
-                "",
-                '> > **Genres:** [Drama](https://anilist.co/search/anime/Drama)  \n>  \n',
-                False
+                [("Drama", 1)],
+                "anime",
+                (
+                    '<blockquote><b>Genres:</b> '
+                    '<a href="https://myanimelist.net/anime/genre/1">Drama</a>'
+                    '</blockquote>'
+                ),
+                True,
+                True
             ),
         )
         for elem in input_data:
@@ -834,6 +969,7 @@ class TestAniMangaFormatters(TestAniMangaBot):
             data.type = elem[1]
             result = elem[2]
             with self.subTest():
+                self.bot.fmt.config = {"use_mal_api": elem[4]}
                 # Act
                 res = await self.bot.fmt._get_genres(data, elem[3])
 
@@ -843,10 +979,9 @@ class TestAniMangaFormatters(TestAniMangaBot):
     async def test_get_tags(self):
         # Arrange
         data = AniMangaData()
-        self.bot.fmt.config = {"use_mal_api": False}
         input_data = (
             (
-                [("Drama", 0), ("Slice of Life", 0)],
+                [("Drama", 1), ("Slice of Life", 2)],
                 "anime",
                 (
                     '<blockquote><b>Tags:</b> '
@@ -855,29 +990,55 @@ class TestAniMangaFormatters(TestAniMangaBot):
                     'Slice of Life</a>'
                     '</blockquote>'
                 ),
-                True
+                True,
+                False
             ),
             (
-                [("Drama", 0)],
+                [("Drama", 1)],
                 "manga",
                 (
                     '<blockquote><b>Tags:</b> '
                     '<a href="https://anilist.co/search/manga?genres=Drama">Drama</a>'
                     '</blockquote>'
                 ),
-                True
+                True,
+                False
             ),
             (
                 [],
                 "manga",
                 "",
+                True,
+                False
+            ),
+            (
+                [("Drama", 1)],
+                "",
+                '> > **Tags:** [Drama](https://anilist.co/search/anime?genres=Drama)  \n>  \n',
+                False,
+                False
+            ),
+            (
+                [("Drama", 1)],
+                "manga",
+                (
+                    '<blockquote><b>Tags:</b> '
+                    '<a href="https://myanimelist.net/manga/genre/1">Drama</a>'
+                    '</blockquote>'
+                ),
+                True,
                 True
             ),
             (
-                [("Drama", 0)],
-                "",
-                '> > **Tags:** [Drama](https://anilist.co/search/anime?genres=Drama)  \n>  \n',
-                False
+                [("Drama", 1)],
+                "anime",
+                (
+                    '<blockquote><b>Tags:</b> '
+                    '<a href="https://myanimelist.net/anime/genre/1">Drama</a>'
+                    '</blockquote>'
+                ),
+                True,
+                True
             ),
         )
         for elem in input_data:
@@ -885,6 +1046,7 @@ class TestAniMangaFormatters(TestAniMangaBot):
             data.type = elem[1]
             result = elem[2]
             with self.subTest():
+                self.bot.fmt.config = {"use_mal_api": elem[4]}
                 # Act
                 res = await self.bot.fmt._get_tags(data, elem[3])
 
@@ -894,7 +1056,6 @@ class TestAniMangaFormatters(TestAniMangaBot):
     async def test_get_related_entries(self):
         # Arrange
         data = AniMangaData()
-        self.bot.fmt.config = {"use_mal_api": False}
         input_data = (
             (
                 [
@@ -938,7 +1099,8 @@ class TestAniMangaFormatters(TestAniMangaBot):
                 '<blockquote>[Character]<br>'
                 '3. <a href="https://anilist.co/anime/185586">Character English</a>'
                 '</blockquote>',
-                True
+                True,
+                False
             ),
             (
                 [
@@ -977,11 +1139,56 @@ class TestAniMangaFormatters(TestAniMangaBot):
                 '([MAL](https://myanimelist.net/anime/60543)) [Sequel]  \n>  \n'
                 '> > 3. [Character English](https://anilist.co/anime/185586) '
                 '[Character]  \n>  \n',
+                False,
                 False
             ),
             (
                 [],
                 '',
+                True,
+                False
+            ),
+            (
+                [
+                    (
+                        'Adaptation',
+                        SearchResult(
+                            id=132029,
+                            id_mal=0,
+                            title_en='',
+                            title_ro='Adaptation Romaji',
+                            media_type='MANGA')
+                    ),
+                    (
+                        'Sequel',
+                        SearchResult(
+                            id=185660,
+                            id_mal=0,
+                            title_en='',
+                            title_ro='Sequel Romaji',
+                            media_type='ANIME')
+                    ),
+                    (
+                        'Character',
+                        SearchResult(
+                            id=185586,
+                            id_mal=0,
+                            title_en='',
+                            title_ro='Character Romaji',
+                            media_type='ANIME')
+                    )
+                ],
+                '<b>Related entries:</b>'
+                '<blockquote>[Adaptation]<br>'
+                '1. <a href="https://myanimelist.net/manga/132029">Adaptation Romaji</a>'
+                '</blockquote>'
+                '<blockquote>[Sequel]<br>'
+                '2. <a href="https://myanimelist.net/anime/185660">Sequel Romaji</a>'
+                '</blockquote>'
+                '<blockquote>[Character]<br>'
+                '3. <a href="https://myanimelist.net/anime/185586">Character Romaji</a>'
+                '</blockquote>',
+                True,
                 True
             ),
         )
@@ -989,6 +1196,7 @@ class TestAniMangaFormatters(TestAniMangaBot):
             data.relations = elem[0]
             result = elem[1]
             with self.subTest():
+                self.bot.fmt.config = {"use_mal_api": elem[3]}
                 # Act
                 res = await self.bot.fmt._get_related_entries(data, elem[2])
 
@@ -998,7 +1206,6 @@ class TestAniMangaFormatters(TestAniMangaBot):
     async def test_get_other_results(self):
         # Arrange
         data = AniMangaData()
-        self.bot.fmt.config = {"use_mal_api": False}
         input_data = (
             (
                 "anime",
@@ -1033,7 +1240,8 @@ class TestAniMangaFormatters(TestAniMangaBot):
                 '<blockquote>'
                 '2. <a href="https://anilist.co/anime/185586">Character English</a>'
                 '</blockquote>',
-                True
+                True,
+                False
             ),
             (
                 "manga",
@@ -1064,6 +1272,7 @@ class TestAniMangaFormatters(TestAniMangaBot):
                 '> > 1. [Sequel Romaji](https://anilist.co/manga/185660) '
                 '([MAL](https://myanimelist.net/manga/60543))  \n>  \n'
                 '> > 2. [Character English](https://anilist.co/manga/185586)  \n>  \n',
+                False,
                 False
             ),
             (
@@ -1078,12 +1287,49 @@ class TestAniMangaFormatters(TestAniMangaBot):
                     )
                 ],
                 '',
-                True
+                True,
+                False
             ),
             (
                 "",
                 [],
                 '',
+                True,
+                False
+            ),
+            (
+                "anime",
+                [
+                    SearchResult(
+                        id=132029,
+                        id_mal=0,
+                        title_en='',
+                        title_ro='Adaptation Romaji',
+                        media_type='ANIME'
+                    ),
+                    SearchResult(
+                        id=185660,
+                        id_mal=0,
+                        title_en='',
+                        title_ro='Sequel Romaji',
+                        media_type='ANIME'
+                    ),
+                    SearchResult(
+                        id=185586,
+                        id_mal=0,
+                        title_en='',
+                        title_ro='Character Romaji',
+                        media_type='ANIME'
+                    )
+                ],
+                '<b>Other results:</b>'
+                '<blockquote>'
+                '1. <a href="https://myanimelist.net/anime/185660">Sequel Romaji</a>'
+                '</blockquote>'
+                '<blockquote>'
+                '2. <a href="https://myanimelist.net/anime/185586">Character Romaji</a>'
+                '</blockquote>',
+                True,
                 True
             ),
         )
@@ -1092,6 +1338,7 @@ class TestAniMangaFormatters(TestAniMangaBot):
             other = elem[1]
             result = elem[2]
             with self.subTest():
+                self.bot.fmt.config = {"use_mal_api": elem[4]}
                 # Act
                 res = await self.bot.fmt._get_other_results(data, other, elem[3])
 
@@ -1133,34 +1380,6 @@ class TestAniMangaFormatters(TestAniMangaBot):
 
                 # Assert
                 self.assertEqual(res, result)
-
-    async def test_get_details(self):
-        # Arrange
-        data = (
-            (
-                "<details><summary><b>title </b></summary>content</details>",
-                "title",
-                "content"
-            ),
-            (
-                "",
-                "",
-                "content"
-            ),
-            (
-                "",
-                "title",
-                ""
-            )
-        )
-
-        for elem in data:
-            with self.subTest():
-                # Act
-                res = await self.bot.fmt._get_details(elem[1], elem[2])
-
-            # Assert
-            self.assertEqual(res, elem[0])
 
 if __name__ == '__main__':
     unittest.main()

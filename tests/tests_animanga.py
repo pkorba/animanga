@@ -8,7 +8,67 @@ from mautrix.errors.base import MatrixResponseError
 
 from .base_test import TestAniMangaBot
 
+
 class TestAniMangaBase(TestAniMangaBot):
+    async def test_get_other_media_ids_when_other_results_then_return_media_ids(self):
+        # Arrange
+        test_vals = ((False, [130003, 101386, 165253]), (True, [47917, 37614, 55357]))
+        body =  (
+            "<blockquote><div><h3><a href=\"https://anilist.co/anime/102448\">Ouch, Chou Chou</a> "
+            "<sup>(<a href=\"https://myanimelist.net/anime/34631\">MAL</a>)</sup></h3><blockquote>"
+            "<b>Score:</b> ⭐ 4.3/10 | 👤 115 votes | ❤️ 2 favorites</blockquote></div><div><details>"
+            "<summary><b>SYNOPSIS </b></summary><p>Old friends Cabbage and Pea reunite under "
+            "awkward circumstances.</p></details></div><div><details><summary><b>POSTER </b>"
+            "</summary><img src=\"mxc://e.com/lLlfzxXiFKLxJYjlvgXzENya\" alt=\"Poster for Ouch,"
+            " Chou Chou\" width=\"230\" height=\"322\" /></details></div><div><details><summary>"
+            "<b>DETAILS </b></summary><blockquote><b>Other titles:</b> Aitata Bocchi, あいたたぼっち"
+            "</blockquote><blockquote><b>Format:</b> Special | 1 episode (11 min)</blockquote>"
+            "<blockquote><b>Status:</b> Finished</blockquote><blockquote><b>Released:</b> 2016"
+            "</blockquote><blockquote><b>External links:</b> "
+            "<a href=\"https://vimeo.com/152551578\">Vimeo</a></blockquote><blockquote>"
+            "<b>Genres:</b> <a href=\"https://anilist.co/search/anime/Drama\">Drama</a>"
+            "</blockquote><blockquote><b>Tags:</b> "
+            "<a href=\"https://anilist.co/search/anime?genres=Bullying\">Bullying</a></blockquote>"
+            "</details></div><div><details><summary><b>LINKS </b></summary><div>"
+            "<b>Other results:</b><blockquote>1. <a href=\"https://anilist.co/anime/130003\">"
+            "BOCCHI THE ROCK!</a> <sup>(<a href=\"https://myanimelist.net/anime/47917\">MAL</a>)"
+            "</sup></blockquote><blockquote>2. <a href=\"https://anilist.co/anime/101386\">"
+            "Hitoribocchi no Marumaruseikatsu</a> <sup>"
+            "(<a href=\"https://myanimelist.net/anime/37614\">MAL</a>)</sup></blockquote>"
+            "<blockquote>3. <a href=\"https://anilist.co/anime/165253\">"
+            "BOCCHI THE ROCK! Recap Part 1</a> <sup>"
+            "(<a href=\"https://myanimelist.net/anime/55357\">MAL</a>)</sup></blockquote></div>"
+            "</details></div><p><b><sub>Results from AniList</sub></b></p></blockquote>"
+        )
+        for use_mal_api, res in test_vals:
+            with self.subTest(use_mal_api=use_mal_api, res=res):
+                self.bot.config = {"use_mal_api": use_mal_api}
+
+                # Act
+                result = self.bot._get_other_media_ids(body)
+
+                # Assert
+                self.assertListEqual(result, res)
+
+    async def test_get_other_media_ids_when_no_results_then_return_empty_list(self):
+        # Arrange
+        test_vals = (
+            (False, "<b>Other results:</b></div>", []),
+            (False, "", []),
+            (True, "<b>Other results:</b></div>", []),
+            (True, "", [])
+        )
+
+        for use_mal_api, body, res in test_vals:
+            with self.subTest(use_mal_api=use_mal_api, res=res):
+                self.bot.config = {"use_mal_api": use_mal_api}
+
+                # Act
+                result = self.bot._get_other_media_ids(body)
+
+                # Assert
+                self.assertListEqual(result, res)
+
     async def test_get_matrix_image_url_when_request_is_successful_then_return_url(self):
         # Arrange
         data = (
@@ -39,7 +99,7 @@ class TestAniMangaBase(TestAniMangaBot):
             response = await self.bot._get_matrix_image_url("https://example.com/image.png")
 
             # Assert
-            self.assertEqual(
+            self.assertListEqual(
                 ['ERROR:testlogger:Downloading image - connection failed: '],
                 logger.output
             )
@@ -64,7 +124,7 @@ class TestAniMangaBase(TestAniMangaBot):
                     result = await self.bot._get_matrix_image_url("https://example.com/image.png")
 
                     # Assert
-                    self.assertEqual([f"ERROR:testlogger:{log_message}"], logger.output)
+                    self.assertListEqual([f"ERROR:testlogger:{log_message}"], logger.output)
                     self.assertEqual(result, "")
 
     async def test_get_image_dimensions_when_correct_data_then_return_dimensions(self):
@@ -94,7 +154,7 @@ class TestAniMangaBase(TestAniMangaBot):
             # Assert
             self.assertEqual(width, 230)
             self.assertEqual(height, 325)
-            self.assertEqual(
+            self.assertListEqual(
                 [
                     "ERROR:testlogger:Error reading image dimensions: "
                     "a bytes-like object is required, not 'str'"
@@ -132,7 +192,7 @@ class TestAniMangaBase(TestAniMangaBot):
             result = self.bot.pr.get_max_value("test", 5)
 
             # Assert
-            self.assertEqual(
+            self.assertListEqual(
                 ["ERROR:testlogger:Incorrect 'test' config value. Setting default value of 5."],
                 logger.output
             )

@@ -3,8 +3,9 @@ import unittest
 from animanga.resources.datastructures import SearchResult
 from .base_test import TestAniMangaBot
 
+
 class TestAniMangaParsers(TestAniMangaBot):
-    async def test_parse_duration(self):
+    async def test_al_parse_duration(self):
         # Arrange
         config = (
             (0, ""),
@@ -17,12 +18,29 @@ class TestAniMangaParsers(TestAniMangaBot):
         for minutes, expected_result in config:
             with self.subTest(minutes=minutes, expected_result=expected_result):
                 # Act
-                result = await self.bot.pr._parse_duration(minutes)
+                result = await self.bot.pr._al_parse_duration(minutes)
 
                 # Assert
                 self.assertEqual(result, expected_result)
 
-    async def test_parse_relations(self):
+    async def test_mal_parse_duration(self):
+        # Arrange
+        config = (
+            ("", ""),
+            ("Unknown", ""),
+            ("59 min", "59 min"),
+            ("59 min per ep", "59 min"),
+            ("1 h", "1 h")
+        )
+        for minutes, expected_result in config:
+            with self.subTest(minutes=minutes, expected_result=expected_result):
+                # Act
+                result = await self.bot.pr._mal_parse_duration(minutes)
+
+                # Assert
+                self.assertEqual(result, expected_result)
+
+    async def test_al_parse_relations(self):
         # Arrange
         data = (
             [
@@ -127,11 +145,109 @@ class TestAniMangaParsers(TestAniMangaBot):
         for i, elem in enumerate(data):
             with self.subTest(i=i):
                 # Act
-                res = await self.bot.pr._parse_relations(elem)
+                res = await self.bot.pr._al_parse_relations(elem)
 
                 # Assert
                 self.assertIsInstance(res, list)
                 self.assertEqual(res, expected[i])
+
+    async def test_mal_parse_relations(self):
+        # Arrange
+        data = (
+            [
+                {
+                    "relation": "Adaptation",
+                    "entry":[
+                        {
+                            "mal_id": 19581,
+                            "type": "anime",
+                            "name": "Adaptation Romaji 1",
+                        },
+                        {
+                            "mal_id": 35557,
+                            "type": "anime",
+                            "name": "Adaptation Romaji 2",
+                        }
+                    ]
+                },
+                {
+                    "relation": "Sequel",
+                    "entry":[
+                        {
+                            "mal_id": 23390,
+                            "type": "manga",
+                            "name": "Sequel Romaji",
+                        }
+                    ]
+                },
+                {
+                    "relation": "Character",
+                    "entry":[
+                        {
+                            "mal_id": 18397,
+                            "type": "anime",
+                            "name": "Character Romaji",
+                        }
+                    ]
+                }
+            ],
+            []
+        )
+
+        expected = (
+            [
+                (
+                    "Adaptation",
+                    SearchResult(
+                        id=19581,
+                        id_mal=0,
+                        title_en="",
+                        title_ro="Adaptation Romaji 1",
+                        media_type="ANIME"
+                    )
+                ),
+                (
+                    "Adaptation",
+                    SearchResult(
+                        id=35557,
+                        id_mal=0,
+                        title_en="",
+                        title_ro="Adaptation Romaji 2",
+                        media_type="ANIME"
+                    )
+                ),
+                (
+                    "Sequel",
+                    SearchResult(
+                        id=23390,
+                        id_mal=0,
+                        title_en="",
+                        title_ro="Sequel Romaji",
+                        media_type="MANGA"
+                    )
+                ),
+                (
+                    "Character",
+                    SearchResult(
+                        id=18397,
+                        id_mal=0,
+                        title_en="",
+                        title_ro="Character Romaji",
+                        media_type="ANIME"
+                    )
+                )
+            ],
+            []
+        )
+
+        for i, elem in enumerate(data):
+            with self.subTest(i=i):
+                # Act
+                res = await self.bot.pr._mal_parse_relations(elem)
+
+                # Assert
+                self.assertIsInstance(res, list)
+                self.assertListEqual(res, expected[i])
 
     async def test_parse_description(self):
         # Arrange
@@ -491,6 +607,52 @@ class TestAniMangaParsers(TestAniMangaBot):
 
                 # Assert
                 self.assertEqual(res, elem[1])
+
+    async def test_parse_authors(self):
+        # Arrange
+        data = (
+            ([
+                {
+                    "role": "Story",
+                    "node": {
+                        "id": 119917,
+                        "name": {
+                            "full": "Tatsuki Fujimoto"
+                        }
+                    }
+                },
+                {
+                    "role": "Art",
+                    "node": {
+                        "id": 153964,
+                        "name": {
+                            "full": "Tokushige  Kawakatsu"
+                        }
+                    }
+                },
+                {
+                    "role": "Bottomless Pit Supervisor",
+                    "node": {
+                        "id": 2137,
+                        "name": {
+                            "full": "Hugh Mungus"
+                        }
+                    }
+                }
+            ], [
+                ("Tatsuki Fujimoto", "Story", 119917),
+                ("Tokushige  Kawakatsu", "Art", 153964)
+            ]),
+            ([], [])
+        )
+
+        # Act
+        for elem in data:
+            with self.subTest():
+                res = await self.bot.pr._parse_authors(elem[0])
+
+                # Assert
+                self.assertListEqual(res, elem[1])
 
 if __name__ == '__main__':
     unittest.main()

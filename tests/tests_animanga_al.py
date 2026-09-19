@@ -6,6 +6,7 @@ from aiohttp import ClientError
 from animanga.resources.datastructures import AniMangaData, SearchResult
 from .base_test import TestAniMangaBot
 
+
 class TestAniMangaAl(TestAniMangaBot):
     async def test_al_get_results_when_request_is_successful_then_return_json(self):
         # Arrange
@@ -16,7 +17,7 @@ class TestAniMangaAl(TestAniMangaBot):
         json_response = await self.bot._al_get_results({"json": "test"})
 
         # Assert
-        self.assertEqual(json_response, json_data)
+        self.assertDictEqual(json_response, json_data)
 
     async def test_al_get_results_when__aiohttp_error_then_raise_exception(self):
         # Arrange
@@ -27,7 +28,10 @@ class TestAniMangaAl(TestAniMangaBot):
             with self.assertRaisesRegex(ClientError, "Connection to AniList API failed."):
                 # Act
                 await self.bot._al_get_results({"json": "test"})
-            self.assertEqual(['ERROR:testlogger:Connection to AniList API failed: '], logger.output)
+            self.assertListEqual(
+                ['ERROR:testlogger:Connection to AniList API failed: '],
+                logger.output
+            )
 
     async def test_al_parse_results_when_correct_data_return_list_of_SearchResult(self):
         # Arrange
@@ -90,7 +94,7 @@ class TestAniMangaAl(TestAniMangaBot):
 
         # Assert
         self.assertIsInstance(results[0], SearchResult)
-        self.assertEqual(results, expected_results)
+        self.assertListEqual(results, expected_results)
 
     async def test_al_parse_results_when_error_return_empty_list(self):
         # Arrange
@@ -125,11 +129,11 @@ class TestAniMangaAl(TestAniMangaBot):
             results = await self.bot.pr.al_parse_results(data)
 
             # Assert
-            self.assertEqual(
+            self.assertListEqual(
                 ["ERROR:testlogger:Error parsing results: Error message; Error message 2"],
                 logger.output
             )
-            self.assertEqual(results, [])
+            self.assertListEqual(results, [])
 
     async def test_al_parse_main_result_when_correct_anime_data_return_AniMangaData(self):
         # Arrange
@@ -389,7 +393,7 @@ class TestAniMangaAl(TestAniMangaBot):
         self.assertEqual(result.nsfw, True)
         self.assertEqual(result.format, "TV Show")
         self.assertEqual(result.status, "Finished")
-        self.assertEqual(
+        self.assertListEqual(
             result.genres,
             [
                 ("Action", 0),
@@ -400,9 +404,9 @@ class TestAniMangaAl(TestAniMangaBot):
                  ("Supernatural", 0)
              ]
         )
-        self.assertEqual(result.tags, [("Urban Fantasy", 0), ("Youkai", 0), ("Ghost", 0)])
-        self.assertEqual(result.relations, relations)
-        self.assertEqual(
+        self.assertListEqual(result.tags, [("Urban Fantasy", 0), ("Youkai", 0), ("Ghost", 0)])
+        self.assertListEqual(result.relations, relations)
+        self.assertListEqual(
             result.links,
             [
                 ("Twitter", "https://twitter.example.com/anime_title"),
@@ -415,11 +419,12 @@ class TestAniMangaAl(TestAniMangaBot):
         self.assertEqual(result.next_episode_num, 9)
         self.assertEqual(result.next_episode_date, "Sunday, 31 Aug 2025, 17:00")
         self.assertEqual(result.duration, "24 min")
-        self.assertEqual(result.studios, {("Studio 1", 6145), ("Studio 4", 53)})
+        self.assertSetEqual(result.studios, {("Studio 1", 6145), ("Studio 4", 53)})
         self.assertEqual(result.studio_number, 3)
         self.assertEqual(result.trailer, ('youtube', 'qwertyuiopa'))
         self.assertEqual(result.volumes, 0)
         self.assertEqual(result.chapters, 0)
+        self.assertListEqual(result.authors, [])
 
     async def test_al_parse_main_result_when_no_anime_data_return_empty_AniMangaData(self):
         # Arrange
@@ -502,22 +507,22 @@ class TestAniMangaAl(TestAniMangaBot):
         self.assertEqual(result.nsfw, False)
         self.assertEqual(result.format, None)
         self.assertEqual(result.status, None)
-        self.assertEqual(result.genres, [])
-        self.assertEqual(result.tags, [])
-        self.assertEqual(result.relations, [])
-        self.assertEqual(result.links, [])
+        self.assertListEqual(result.genres, [])
+        self.assertListEqual(result.tags, [])
+        self.assertListEqual(result.relations, [])
+        self.assertListEqual(result.links, [])
         self.assertEqual(result.episodes, None)
         self.assertEqual(result.season, None)
         self.assertEqual(result.season_year, None)
         self.assertEqual(result.next_episode_num, 0)
         self.assertEqual(result.next_episode_date, "")
         self.assertEqual(result.duration, "")
-        self.assertEqual(result.studios, set())
+        self.assertSetEqual(result.studios, set())
         self.assertEqual(result.studio_number, 0)
         self.assertEqual(result.trailer, ())
         self.assertEqual(result.volumes, 0)
         self.assertEqual(result.chapters, 0)
-        self.assertEqual(result.authors, [])
+        self.assertListEqual(result.authors, [])
 
     async def test_al_parse_main_result_when_correct_manga_data_return_AniMangaData(self):
         # Arrange
@@ -750,7 +755,7 @@ class TestAniMangaAl(TestAniMangaBot):
         self.assertEqual(result.nsfw, True)
         self.assertEqual(result.format, "Manga")
         self.assertEqual(result.status, "Finished")
-        self.assertEqual(
+        self.assertListEqual(
             result.genres,
             [
                 ("Action", 0),
@@ -761,9 +766,9 @@ class TestAniMangaAl(TestAniMangaBot):
                 ("Supernatural", 0)
             ]
         )
-        self.assertEqual(result.tags, [("Urban Fantasy", 0), ("Youkai", 0), ("Ghost", 0)])
-        self.assertEqual(result.relations, relations)
-        self.assertEqual(
+        self.assertListEqual(result.tags, [("Urban Fantasy", 0), ("Youkai", 0), ("Ghost", 0)])
+        self.assertListEqual(result.relations, relations)
+        self.assertListEqual(
             result.links,
             [
                 ("Twitter", "https://twitter.example.com/anime_title"),
@@ -776,12 +781,12 @@ class TestAniMangaAl(TestAniMangaBot):
         self.assertEqual(result.next_episode_num, 0)
         self.assertEqual(result.next_episode_date, "")
         self.assertEqual(result.duration, "")
-        self.assertEqual(result.studios, set())
+        self.assertSetEqual(result.studios, set())
         self.assertEqual(result.studio_number, 0)
         self.assertEqual(result.trailer, ())
         self.assertEqual(result.volumes, 5)
         self.assertEqual(result.chapters, 100)
-        self.assertEqual(result.authors, [("Tatsuki Fujimoto", "Story & Art", 119917)])
+        self.assertListEqual(result.authors, [("Tatsuki Fujimoto", "Story & Art", 119917)])
 
     async def test_al_parse_main_result_when_no_manga_data_return_empty_AniMangaData(self):
         # Arrange
@@ -857,17 +862,17 @@ class TestAniMangaAl(TestAniMangaBot):
         self.assertEqual(result.nsfw, False)
         self.assertEqual(result.format, None)
         self.assertEqual(result.status, None)
-        self.assertEqual(result.genres, [])
-        self.assertEqual(result.tags, [])
-        self.assertEqual(result.relations, [])
-        self.assertEqual(result.links, [])
+        self.assertListEqual(result.genres, [])
+        self.assertListEqual(result.tags, [])
+        self.assertListEqual(result.relations, [])
+        self.assertListEqual(result.links, [])
         self.assertEqual(result.episodes, 0)
         self.assertEqual(result.season, "")
         self.assertEqual(result.season_year, 0)
         self.assertEqual(result.next_episode_num, 0)
         self.assertEqual(result.next_episode_date, "")
         self.assertEqual(result.duration, "")
-        self.assertEqual(result.studios, set())
+        self.assertSetEqual(result.studios, set())
         self.assertEqual(result.studio_number, 0)
         self.assertEqual(result.trailer, ())
         self.assertEqual(result.volumes, None)
@@ -907,12 +912,11 @@ class TestAniMangaAl(TestAniMangaBot):
             results = await self.bot.pr.al_parse_main_result(data)
 
             # Assert
-            self.assertEqual(
+            self.assertListEqual(
                 ["ERROR:testlogger:Error parsing results: Error message; Error message 2"],
                 logger.output
             )
             self.assertEqual(results, None)
-
 
 if __name__ == '__main__':
     unittest.main()
