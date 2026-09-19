@@ -56,7 +56,7 @@ class Parser:
             )
             return None
         data = data["data"]["Media"]
-        relations = await self._parse_relations(data["relations"]["edges"])
+        relations = await self._al_parse_relations(data["relations"]["edges"])
         result = AniMangaData(
             id=data["id"],
             id_mal=data["idMal"],
@@ -91,7 +91,7 @@ class Parser:
                 if data["nextAiringEpisode"] else 0
             )
             result.next_episode_date = await self._parse_next_airing_episode(data)
-            result.duration = await self._parse_duration(data["duration"])
+            result.duration = await self._al_parse_duration(data["duration"])
             result.studios = studios
             result.studio_number = studio_number
             result.trailer = (
@@ -147,6 +147,7 @@ class Parser:
             return None
         data = data["data"]
         relations = await self._mal_parse_relations(data["relations"])
+
         result = AniMangaData(
             id=data["mal_id"],
             id_mal=0,
@@ -177,7 +178,7 @@ class Parser:
             result.season_year = data["year"]
             result.next_episode_num = 0
             result.next_episode_date = data["broadcast"]["string"]
-            result.duration = data["duration"].rstrip("per ep") if data["duration"] else ""
+            result.duration = await self._mal_parse_duration(data["duration"])
             result.studios = {(st["name"], st["mal_id"]) for st in data["studios"]}
             result.studio_number = len(data["producers"]) + len(data["licensors"])
             result.trailer = (
@@ -209,6 +210,11 @@ class Parser:
             result.end_date = await self._parse_date(data["published"]["prop"], "to")
         return result
 
+    async def _mal_parse_duration(self, duration: str) -> str:
+        if not duration or duration == "Unknown":
+            return ""
+        return duration.rstrip("per ep")
+
     async def _mal_parse_relations(self, relations_raw: Any) -> list[tuple[Any, SearchResult]]:
         """
         Sort relation types in order defined in relation_types dictionary.
@@ -231,7 +237,7 @@ class Parser:
                 relations.append(rel)
         return relations
 
-    async def _parse_relations(self, relations_raw: Any) -> list[tuple[Any, SearchResult]]:
+    async def _al_parse_relations(self, relations_raw: Any) -> list[tuple[Any, SearchResult]]:
         """
         Sort relation types in order defined in relation_types dictionary.
         :param relations_raw: raw list od relations from API
@@ -341,7 +347,7 @@ class Parser:
                 )
         return authors
 
-    async def _parse_duration(self, time: int) -> str:
+    async def _al_parse_duration(self, time: int) -> str:
         """
         Convert minutes to human-readable format
         :param time: minutes
