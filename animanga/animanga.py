@@ -154,7 +154,11 @@ class AniMangaBot(Plugin):
 
         # User requested to change the result
         edit_id = result_indexes[key]
-        media_ids = await self._get_other_media_ids(bot_message.content.formatted_body)
+        media_ids = await self.loop.run_in_executor(
+            None,
+            self._get_other_media_ids,
+            bot_message.content.formatted_body
+        )
         if edit_id >= len(media_ids):
             return
 
