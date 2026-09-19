@@ -23,6 +23,10 @@ Type the title of the anime or manga:
 !manga <title>
 ```
 
+The bot allows for a one-time edit of the search result. You can replace the main result with an entry from the *Other results* list found in the *LINKS* section. To do this, react to the bot's message using the 1️⃣, 2️⃣, 3️⃣, etc., emojis, The number on the emoji corresponds to the number in the *Other results* list.
+It is also possible to completely remove the bot's message by reacting to it with the 👎 emoji.
+The bot will accept one of these commands only if it comes from the person who originally triggered the `!anime` or `!manga` command.
+
 ## Configuration
 
 It's possible to change plugin's configuration in maubot's control panel. Available options:
@@ -32,4 +36,4 @@ It's possible to change plugin's configuration in maubot's control panel. Availa
 
 ## Disclaimer
 
-This plugin is not affiliated with AniList. It is not intended for commercial use or any purpose that violates AniList's Terms of Service. By using this plugin, you acknowledge that you will not use it in a way that infringes on AniList's terms. The official AniList website can be found at https://anilist.co.
+This plugin is not affiliated with AniList, MyAnimeList, and Tenrai API. It is not intended for commercial use or any purpose that violates Terms of Service of mentioned services. By using this plugin, you acknowledge that you will not use it in a way that infringes on these service's terms.
