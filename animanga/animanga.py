@@ -197,7 +197,7 @@ class AniMangaBot(Plugin):
         else:
             self.log.error("Error during preparation of the edit summary.")
 
-    async def _get_other_media_ids(self, body: str) -> list[int]:
+    def _get_other_media_ids(self, body: str) -> list[int]:
         other_results_section = self.OTHERS.search(body)
         media_ids = []
         if other_results_section:
