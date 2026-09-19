@@ -206,7 +206,7 @@ class AniMangaBot(Plugin):
                 media_ids = self.MYANIMELIST_URL.findall(other_results)
             else:
                 media_ids = self.ANILIST_URL.findall(other_results)
-        return media_ids
+        return [int(m_id) for m_id in media_ids]
 
     async def _al_message_handler(self, evt: MessageEvent, title: str, media_type: str) -> None:
         """
