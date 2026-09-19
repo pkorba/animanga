@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock
 
 import aiohttp
 from aiohttp import ClientError
-
 from mautrix.errors.base import MatrixResponseError
 
 from .base_test import TestAniMangaBot

@@ -1,6 +1,7 @@
 import unittest
 
 from mautrix.types import TextMessageEventContent
+
 from animanga.resources.datastructures import AniMangaData, SearchResult
 from .base_test import TestAniMangaBot
 
