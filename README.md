@@ -11,9 +11,11 @@ pip install --upgrade pillow
 ```
 
 ## Screenshots
-<img width="45%" height="45%" alt="animangabig" src="https://github.com/user-attachments/assets/3d1e915c-60bd-48ed-a3df-d0b9b85a6ce9" />
-<img width="45%" height="45%" alt="animanga1" src="https://github.com/user-attachments/assets/5c2e911c-2bdc-45b1-b61f-7e554d1ab398" />
+### Compact view (default)
+<img width="565" height="326" alt="animanga" src="https://github.com/user-attachments/assets/6df380b3-6ffb-4734-8a2e-72dac8360384" />
 
+### Expanded view
+<img width="30%" height="30%" alt="animanga_big" src="https://github.com/user-attachments/assets/2f4da2fb-85b2-4444-9c20-891c54a8d5fd" />
 
 ## Usage
 
