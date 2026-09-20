@@ -27,6 +27,8 @@ The bot allows for a one-time edit of the search result. You can replace the mai
 It is also possible to completely remove the bot's message by reacting to it with the 👎 emoji.
 The bot will accept one of these commands only if it comes from the person who originally triggered the `!anime` or `!manga` command.
 
+https://github.com/user-attachments/assets/9bf591c8-c0da-41e9-b713-3ca07bb1e528
+
 ## Configuration
 
 It's possible to change plugin's configuration in maubot's control panel. Available options:
