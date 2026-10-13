@@ -85,7 +85,7 @@ class AniMangaBot(Plugin):
             await self._al_message_handler(evt, title, "MANGA")
 
     @command.passive(
-        regex="1️⃣|2️⃣|3️⃣|4️⃣|5️⃣|6️⃣|7️⃣|8️⃣|9️⃣|👎️|",
+        regex="1️⃣|2️⃣|3️⃣|4️⃣|5️⃣|6️⃣|7️⃣|8️⃣|9️⃣|👎️",
         field=lambda evt: evt.content.relates_to.key,
         event_type=EventType.REACTION,
         msgtypes=[]
