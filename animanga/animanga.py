@@ -31,7 +31,7 @@ class AniMangaBot(Plugin):
     al_url = "https://graphql.anilist.co"
     mal_url = "https://api.tenrai.org/v1"
     headers = {
-        "User-Agent": "AniMangaBot/2.0.0"
+        "User-Agent": "AniMangaBot/2.0.1"
     }
     pr = None
     fmt = None

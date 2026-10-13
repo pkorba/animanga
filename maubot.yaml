@@ -1,6 +1,6 @@
 maubot: 0.1.0
 id: com.github.pkorba.animanga
-version: 2.0.0
+version: 2.0.1
 license: MIT
 modules:
   - animanga
